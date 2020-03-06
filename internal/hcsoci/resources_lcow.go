@@ -168,6 +168,7 @@ func allocateLinuxResources(ctx context.Context, coi *createOptionsInternal, res
 				},
 			}
 			vmBusGUID, err := coi.HostingSystem.AssignDevice(ctx, v)
+			// TODO katiewasnothere: call release on all devices
 			if err != nil {
 				return errors.Wrapf(err, "failed to assign gpu device %s to pod %s", d.ID, coi.HostingSystem.ID())
 			}

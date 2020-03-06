@@ -290,5 +290,8 @@ func createWindowsContainerDocument(ctx context.Context, coi *createOptionsInter
 	}
 	v1.MappedPipes = mpsv1
 	v2Container.MappedPipes = mpsv2
+
+	// TODO katiewasnothere: add parsing of v2 ONLY assigned devices, parse spec definition of assigned
+	// devices into an option on the hcsshema for the container
 	return v1, v2Container, nil
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/Microsoft/hcsshim/internal/wclayer"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/pkg/errors"
 )
 
 func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, resources *Resources) error {
@@ -129,6 +130,31 @@ func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, r
 			}
 		}
 	}
+
+	// TODO katiewasnothere: how to get the kmd in the UVM????
+
+	// katiewasnothere defer func to remove the devices in the event of an error
+	// TODO katiewasnothere: add additional check for if we have a hosting system
+	for _, d := range coi.Spec.Windows.Devices {
+		if d.IDType == "gpu" || d.IDType == "vpci" {
+			device := hcsschema.VirtualPciDevice{
+				Functions: []hcsschema.VirtualPciFunction{
+					{
+						DeviceInstancePath: d.ID,
+					},
+				},
+			}
+			vmBusGUID, err := coi.HostingSystem.AssignDevice(ctx, device)
+			if err != nil {
+				return errors.Wrapf(err, "failed to assign device %s of type %s to pod %s", d.ID, d.IDType, coi.HostingSystem.ID())
+			}
+			// katiewasnothere: batch call to query for vmbus guid
+			resources.vpciDevices = append(resources.vpciDevices, vmBusGUID)
+			// coi.Spec.Windows.Devices[i].ID = vmBusGUID // TODO katiewasnothere: is this necessary?
+		}
+	}
+
+
 
 	return nil
 }

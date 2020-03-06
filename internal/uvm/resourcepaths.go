@@ -18,4 +18,5 @@ const (
 	vPMemControllerResourceFormat    string = "VirtualMachine/Devices/VirtualPMem/Devices/%d"
 	vPMemDeviceResourceFormat        string = "VirtualMachine/Devices/VirtualPMem/Devices/%d/Mappings/%d"
 	vSmbShareResourcePath            string = "VirtualMachine/Devices/VirtualSmb/Shares"
+	containerDeviceResourcePath      string = "Container/Devices/Generic"
 )

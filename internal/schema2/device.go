@@ -10,7 +10,7 @@
 package hcsschema
 
 type Device struct {
-
+	// TODO katiewasnothere: this needs to be updated to the latest version
 	//  The interface class guid of the device to assign to container.
 	InterfaceClassGuid string `json:"InterfaceClassGuid,omitempty"`
 }
