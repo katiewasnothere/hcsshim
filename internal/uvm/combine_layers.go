@@ -8,6 +8,11 @@ import (
 	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 )
 
+// TODO katiewasnothere: should this go somewhere else??
+func (uvm *UtilityVM) GetDeviceBackingType() MemoryBackingType {
+	return uvm.deviceBackingType
+}
+
 // CombineLayersWCOW combines `layerPaths` with `containerRootPath` into the
 // container file system.
 //

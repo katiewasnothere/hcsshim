@@ -271,6 +271,7 @@ func CreateLCOW(ctx context.Context, opts *OptionsLCOW) (_ *UtilityVM, err error
 			},
 		}
 	}
+
 	if uvm.vpmemMaxCount > 0 {
 		doc.VirtualMachine.Devices.VirtualPMem = &hcsschema.VirtualPMemController{
 			MaximumCount:     uvm.vpmemMaxCount,

@@ -245,6 +245,45 @@ func Test_RunPodSandbox_PhysicalMemory_LCOW(t *testing.T) {
 			},
 			Annotations: map[string]string{
 				"io.microsoft.virtualmachine.computetopology.memory.allowovercommit": "false",
+				"io.microsoft.virtualmachine.devicememorybackingtype":                "physical",
+			},
+		},
+		RuntimeHandler: lcowRuntimeHandler,
+	}
+	runPodSandboxTest(t, request)
+}
+
+func Test_RunPodSandbox_DevicePhysicalMemory_WCOW_Hypervisor(t *testing.T) {
+	pullRequiredImages(t, []string{imageWindowsNanoserver})
+
+	request := &runtime.RunPodSandboxRequest{
+		Config: &runtime.PodSandboxConfig{
+			Metadata: &runtime.PodSandboxMetadata{
+				Name:      t.Name(),
+				Uid:       "0",
+				Namespace: testNamespace,
+			},
+			Annotations: map[string]string{
+				"io.microsoft.virtualmachine.devicememorybackingtype": "physical",
+			},
+		},
+		RuntimeHandler: wcowHypervisorRuntimeHandler,
+	}
+	runPodSandboxTest(t, request)
+}
+
+func Test_RunPodSandbox_DevicePhysicalMemory_LCOW(t *testing.T) {
+	pullRequiredLcowImages(t, []string{imageLcowK8sPause})
+
+	request := &runtime.RunPodSandboxRequest{
+		Config: &runtime.PodSandboxConfig{
+			Metadata: &runtime.PodSandboxMetadata{
+				Name:      t.Name(),
+				Uid:       "0",
+				Namespace: testNamespace,
+			},
+			Annotations: map[string]string{
+				"io.microsoft.virtualmachine.devicememorybackingtype": "physical",
 			},
 		},
 		RuntimeHandler: lcowRuntimeHandler,

@@ -79,10 +79,12 @@ const (
 	// `spec.Windows.Resources.Storage.Iops`.
 	AnnotationContainerStorageQoSIopsMaximum = "io.microsoft.container.storage.qos.iopsmaximum"
 	// AnnotationGPUVHDPath overrides the default path to search for the gpu vhd
-	AnnotationGPUVHDPath            = "io.microsoft.lcow.gpuvhdpath"
-	annotationAllowOvercommit       = "io.microsoft.virtualmachine.computetopology.memory.allowovercommit"
-	annotationEnableDeferredCommit  = "io.microsoft.virtualmachine.computetopology.memory.enabledeferredcommit"
-	annotationEnableColdDiscardHint = "io.microsoft.virtualmachine.computetopology.memory.enablecolddiscardhint"
+	AnnotationGPUVHDPath                  = "io.microsoft.lcow.gpuvhdpath"
+	AnnotationAssignedDeviceKernelDrivers = "io.microsoft.assigneddevice.kerneldrivers"
+	annotationAllowOvercommit             = "io.microsoft.virtualmachine.computetopology.memory.allowovercommit"
+	annotationEnableDeferredCommit        = "io.microsoft.virtualmachine.computetopology.memory.enabledeferredcommit"
+	annotationEnableColdDiscardHint       = "io.microsoft.virtualmachine.computetopology.memory.enablecolddiscardhint"
+
 	// annotationMemorySizeInMB overrides the container memory size set via the
 	// OCI spec.
 	//
@@ -123,6 +125,8 @@ const (
 	annotationVPCIEnabled                = "io.microsoft.virtualmachine.lcow.vpcienabled"
 	annotationStorageQoSBandwidthMaximum = "io.microsoft.virtualmachine.storageqos.bandwidthmaximum"
 	annotationStorageQoSIopsMaximum      = "io.microsoft.virtualmachine.storageqos.iopsmaximum"
+
+	annotationDeviceMemoryBackingType = "io.microsoft.virtualmachine.devicememorybackingtype"
 )
 
 // parseAnnotationsBool searches `a` for `key` and if found verifies that the
@@ -249,6 +253,23 @@ func ParseAnnotationsMemory(ctx context.Context, s *specs.Spec, annotation strin
 	return def
 }
 
+func parseAnnotationsDeviceBackingType(ctx context.Context, a map[string]string, key string, def uvm.MemoryBackingType) uvm.MemoryBackingType {
+	if v, ok := a[key]; ok {
+		switch v {
+		case "virtual":
+			return uvm.VirtualBacking
+		case "physical":
+			return uvm.PhysicalBacking
+		default:
+			log.G(ctx).WithFields(logrus.Fields{
+				"annotation": key,
+				"value":      v,
+			}).Warn("annotation value must be 'physical' or 'virtual'")
+		}
+	}
+	return def
+}
+
 // parseAnnotationsPreferredRootFSType searches `a` for `key` and verifies that the
 // value is in the set of allowed values. If `key` is not found returns `def`.
 func parseAnnotationsPreferredRootFSType(ctx context.Context, a map[string]string, key string, def uvm.PreferredRootFSType) uvm.PreferredRootFSType {
@@ -348,6 +369,7 @@ func SpecToUVMCreateOpts(ctx context.Context, s *specs.Spec, id, owner string) (
 			lopts.KernelFile = uvm.KernelFile
 		}
 		lopts.BootFilesPath = parseAnnotationsString(s.Annotations, annotationBootFilesRootPath, lopts.BootFilesPath)
+		lopts.DeviceBackingType = parseAnnotationsDeviceBackingType(ctx, s.Annotations, annotationDeviceMemoryBackingType, lopts.DeviceBackingType)
 		return lopts, nil
 	} else if IsWCOW(s) {
 		wopts := uvm.NewDefaultOptionsWCOW(id, owner)
@@ -362,6 +384,7 @@ func SpecToUVMCreateOpts(ctx context.Context, s *specs.Spec, id, owner string) (
 		wopts.ProcessorWeight = ParseAnnotationsCPUWeight(ctx, s, annotationProcessorWeight, wopts.ProcessorWeight)
 		wopts.StorageQoSBandwidthMaximum = ParseAnnotationsStorageBps(ctx, s, annotationStorageQoSBandwidthMaximum, wopts.StorageQoSBandwidthMaximum)
 		wopts.StorageQoSIopsMaximum = ParseAnnotationsStorageIops(ctx, s, annotationStorageQoSIopsMaximum, wopts.StorageQoSIopsMaximum)
+		wopts.DeviceBackingType = parseAnnotationsDeviceBackingType(ctx, s.Annotations, annotationDeviceMemoryBackingType, wopts.DeviceBackingType)
 		return wopts, nil
 	}
 	return nil, errors.New("cannot create UVM opts spec is not LCOW or WCOW")

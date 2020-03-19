@@ -193,3 +193,17 @@ func findTestNvidiaGPUDevice() (string, error) {
 	}
 	return strings.TrimSpace(string(out)), nil
 }
+
+// TODO katiewasnothere: move this to a generic location for function and cri-containerd
+
+// findTestDevices returns the first pcip device on the host
+func findTestVirtualDevice() (string, error) {
+	out, err := exec.Command(
+		"powershell",
+		`(Get-PnpDevice -presentOnly | where-object {$_.InstanceID -Match 'PCIP.*'})[0].InstanceId`,
+	).Output()
+	if err != nil {
+		return "", nil
+	}
+	return strings.TrimSpace(string(out)), nil
+}

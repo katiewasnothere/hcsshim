@@ -229,3 +229,32 @@ func CreateContainer(ctx context.Context, createOptions *CreateOptions) (_ cow.C
 	}
 	return system, resources, nil
 }
+
+func (coi *createOptionsInternal) isV2Xenon() bool {
+	if schemaversion.IsV21(coi.actualSchemaVersion) && coi.HostingSystem != nil {
+		return true
+	}
+	return false
+}
+
+// TODO katiewasnothere: is this the correct condition
+func (coi *createOptionsInternal) isV1Xenon() bool {
+	if schemaversion.IsV10(coi.actualSchemaVersion) && coi.HostingSystem != nil {
+		return true
+	}
+	return false
+}
+
+func (coi *createOptionsInternal) isV2Argon() bool {
+	if schemaversion.IsV21(coi.actualSchemaVersion) && coi.HostingSystem == nil {
+		return true
+	}
+	return false
+}
+
+func (coi *createOptionsInternal) isV1Argon() bool {
+	if schemaversion.IsV10(coi.actualSchemaVersion) && coi.Spec.Windows.HyperV == nil {
+		return true
+	}
+	return false
+}

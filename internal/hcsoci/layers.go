@@ -98,6 +98,9 @@ func MountContainerLayers(ctx context.Context, layerFolders []string, guestRoot 
 				CacheIo:             true,
 				ShareRead:           true,
 			}
+			if uvm.GetDeviceBackingType() == uvmpkg.PhysicalBacking {
+				options.NoDirectmap = true
+			}
 			err = uvm.AddVSMB(ctx, layerPath, "", options)
 			if err == nil {
 				layersAdded = append(layersAdded, layerPath)
@@ -107,14 +110,7 @@ func MountContainerLayers(ctx context.Context, layerFolders []string, guestRoot 
 				layerPath = filepath.Join(layerPath, "layer.vhd")
 				uvmPath   string
 			)
-
-			// We first try vPMEM and if it is full or the file is too large we
-			// fall back to SCSI.
-			uvmPath, err = uvm.AddVPMEM(ctx, layerPath)
-			if err == uvmpkg.ErrNoAvailableLocation || err == uvmpkg.ErrMaxVPMEMLayerSize {
-				log.G(ctx).WithError(err).Debug("falling back to SCSI for lcow layer addition")
-				uvmPath, err = uvm.AddSCSILayer(ctx, layerPath)
-			}
+			uvmPath, err := addLCOWLayer(ctx, uvm, layerPath)
 			if err == nil {
 				layersAdded = append(layersAdded, layerPath)
 				lcowUvmLayerPaths = append(lcowUvmLayerPaths, uvmPath)
@@ -158,6 +154,22 @@ func MountContainerLayers(ctx context.Context, layerFolders []string, guestRoot 
 	}
 	log.G(ctx).Debug("hcsshim::mountContainerLayers Succeeded")
 	return rootfs, nil
+}
+
+func addLCOWLayer(ctx context.Context, uvm *uvmpkg.UtilityVM, layerPath string) (string, error) {
+	if uvm.GetDeviceBackingType() == uvmpkg.PhysicalBacking {
+		// don't try to add as vpmem since we want the uvm's device to be physically backed
+		uvmPath, err := uvm.AddSCSILayer(ctx, layerPath)
+		return uvmPath, err
+	}
+	// We first try vPMEM and if it is full or the file is too large we
+	// fall back to SCSI.
+	uvmPath, err := uvm.AddVPMEM(ctx, layerPath)
+	if err == uvmpkg.ErrNoAvailableLocation || err == uvmpkg.ErrMaxVPMEMLayerSize {
+		log.G(ctx).WithError(err).Debug("falling back to SCSI for lcow layer addition")
+		uvmPath, err = uvm.AddSCSILayer(ctx, layerPath)
+	}
+	return uvmPath, err
 }
 
 // UnmountOperation is used when calling Unmount() to determine what type of unmount is

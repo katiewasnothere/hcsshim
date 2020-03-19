@@ -19,6 +19,13 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+type MemoryBackingType int
+
+const (
+	PhysicalBacking = iota
+	VirtualBacking
+)
+
 // Options are the set of options passed to Create() to create a utility vm.
 type Options struct {
 	ID                      string // Identifier for the uvm. Defaults to generated GUID.
@@ -36,6 +43,8 @@ type Options struct {
 	// Memory for UVM. Defaults to true. For physical backed memory, set to
 	// false.
 	AllowOvercommit bool
+
+	DeviceBackingType MemoryBackingType // TODO katiewasnothere: describe and also change to not be 64
 
 	// Memory for UVM. Defaults to false. For virtual memory with deferred
 	// commit, set to true.
@@ -79,6 +88,7 @@ func newDefaultOptions(id, owner string) *Options {
 		AllowOvercommit:      true,
 		EnableDeferredCommit: false,
 		ProcessorCount:       defaultProcessorCount(),
+		DeviceBackingType:    VirtualBacking,
 	}
 
 	if opts.Owner == "" {

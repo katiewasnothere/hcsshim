@@ -73,6 +73,8 @@ type UtilityVM struct {
 	exitErr error
 	exitCh  chan struct{}
 
+	deviceBackingType MemoryBackingType // Indicates if the uvm is to be physically or virtually backed
+
 	// GCS bridge protocol and capabilities
 	protocol  uint32
 	guestCaps schema1.GuestDefinedCapabilities

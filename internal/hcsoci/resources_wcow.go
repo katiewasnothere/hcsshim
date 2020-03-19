@@ -5,22 +5,39 @@ package hcsoci
 // Contains functions relating to a WCOW container, as opposed to a utility VM
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/Microsoft/hcsshim/internal/log"
+	"github.com/Microsoft/hcsshim/internal/oci"
 	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 	"github.com/Microsoft/hcsshim/internal/schemaversion"
+	"github.com/Microsoft/hcsshim/internal/shimdiag"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/Microsoft/hcsshim/internal/wclayer"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 )
 
-func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, resources *Resources) error {
+const wcowGlobalMountPath = "C:\\mounts\\"
+const wcowGlobalMountPrefix = wcowGlobalMountPath + "m%d"
+const wcowGlobalDriverMountPath = wcowGlobalMountPath + "drivers"
+
+func getAssignedDeviceKernelDrivers(coi *createOptionsInternal) ([]string, error) {
+	drivers, ok := coi.Spec.Annotations[oci.AnnotationAssignedDeviceKernelDrivers]
+	if !ok || drivers == "" {
+		return nil, fmt.Errorf("no assigned device drivers specified %s", drivers)
+	}
+	return strings.Split(drivers, ","), nil
+
+}
+
+func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, resources *Resources) (err error) {
 	if coi.Spec == nil || coi.Spec.Windows == nil || coi.Spec.Windows.LayerFolders == nil {
 		return fmt.Errorf("field 'Spec.Windows.Layerfolders' is not populated")
 	}
@@ -120,6 +137,9 @@ func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, r
 						options.ForceLevelIIOplocks = true
 						break
 					}
+					if coi.HostingSystem.GetDeviceBackingType() == uvm.PhysicalBacking {
+						options.NoDirectmap = true
+					}
 
 					if err := coi.HostingSystem.AddVSMB(ctx, mount.Source, "", options); err != nil {
 						return fmt.Errorf("failed to add VSMB share to utility VM for mount %+v: %s", mount, err)
@@ -131,12 +151,24 @@ func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, r
 		}
 	}
 
-	// TODO katiewasnothere: how to get the kmd in the UVM????
+	if coi.HostingSystem != nil {
+		err = installDrivers(ctx, coi, resources)
+		if err != nil {
+			return err
+		}
+		err := handleAssignedDevices(ctx, coi, resources)
+		if err != nil {
+			return err
+		}
+	}
 
-	// katiewasnothere defer func to remove the devices in the event of an error
-	// TODO katiewasnothere: add additional check for if we have a hosting system
+	return nil
+}
+
+func handleAssignedDevices(ctx context.Context, coi *createOptionsInternal, resources *Resources) error {
+	vpciVMBusInstanceIDs := []string{}
 	for _, d := range coi.Spec.Windows.Devices {
-		if d.IDType == "gpu" || d.IDType == "vpci" {
+		if d.IDType == uvm.VPCIDeviceIDType {
 			device := hcsschema.VirtualPciDevice{
 				Functions: []hcsschema.VirtualPciFunction{
 					{
@@ -148,13 +180,153 @@ func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, r
 			if err != nil {
 				return errors.Wrapf(err, "failed to assign device %s of type %s to pod %s", d.ID, d.IDType, coi.HostingSystem.ID())
 			}
-			// katiewasnothere: batch call to query for vmbus guid
 			resources.vpciDevices = append(resources.vpciDevices, vmBusGUID)
-			// coi.Spec.Windows.Devices[i].ID = vmBusGUID // TODO katiewasnothere: is this necessary?
+			// TODO katiewasnothere: for now use the vmbus class guid so we can make progress....
+			/*coi.Spec.Windows.Devices[i].ID = "4D36E97D-E325-11CE-BFC1-08002BE10318"
+			coi.Spec.Windows.Devices[i].IDType = "InterfaceClassGUID"*/
+
+			vmBusInstanceID := coi.HostingSystem.GetAssignedDeviceParentID(vmBusGUID)
+			vpciVMBusInstanceIDs = append(vpciVMBusInstanceIDs, vmBusInstanceID)
 		}
 	}
 
-
-
+	assignedDevices := []specs.WindowsDevice{}
+	if len(vpciVMBusInstanceIDs) != 0 {
+		busDevices, err := getBusAssignedDevices(ctx, coi, vpciVMBusInstanceIDs, uvm.VPCILocationPathIDType)
+		if err != nil {
+			return err
+		}
+		assignedDevices = append(assignedDevices, busDevices...)
+	}
+	// override devices with uvm specific device identifiers
+	coi.Spec.Windows.Devices = assignedDevices
 	return nil
+}
+
+// mountDrivers mounts all added driver files into the uvm under wcowGlobalDriverMountPath
+func mountDrivers(ctx context.Context, vm *uvm.UtilityVM, resources *Resources, driverHostPaths []string) error {
+	readOnly := true
+	for _, d := range driverHostPaths {
+		if _, err := os.Stat(d); err != nil {
+			return err
+		}
+		uvmPath := filepath.Join(wcowGlobalDriverMountPath, d)
+		_, _, _, err := vm.AddSCSI(ctx, d, uvmPath, readOnly)
+		if err != nil {
+			return err
+		}
+		resources.scsiMounts = append(resources.scsiMounts, scsiMount{path: d, autoManage: false})
+	}
+	return nil
+}
+
+// TODO katiewasnothere: do I really want to add ALL drivers in this dir? can i specify
+// without making multiple exec calls?
+
+// execPnPInstallAllDrivers makes the call to exec in the uvm the pnp command
+// that installs all drivers under wcowGlobalDriverMountPath
+func execPnPInstallAllDrivers(ctx context.Context, vm *uvm.UtilityVM) error {
+	args := []string{"pnputil.exe", "/add-driver", "*.inf", "/subdirs", "/install"}
+	req := &shimdiag.ExecProcessRequest{
+		Args:    args,
+		Workdir: wcowGlobalDriverMountPath,
+	}
+	exitCode, err := ExecInUvm(ctx, vm, req)
+	if err != nil {
+		return errors.Wrapf(err, "failed to install drivers in uvm with exit code %d", exitCode)
+	}
+	return nil
+}
+
+// TODO katiewasnothere: check that I can have two containers try to mount this
+func installDrivers(ctx context.Context, coi *createOptionsInternal, resources *Resources) error {
+	drivers, err := getAssignedDeviceKernelDrivers(coi)
+	if err != nil {
+		return err
+	}
+	err = mountDrivers(ctx, coi.HostingSystem, resources, drivers)
+	if err != nil {
+		return err
+	}
+	err = execPnPInstallAllDrivers(ctx, coi.HostingSystem)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func getBusAssignedDevicesWIP(ctx context.Context, coi *createOptionsInternal, vmBusGUIDs []string, idType string) ([]specs.WindowsDevice, error) {
+	result := []specs.WindowsDevice{}
+	out := os.Stdout
+	formattedVMBusGUIDs := strings.Join(vmBusGUIDs, ",")
+	parentIDsFlag := fmt.Sprintf("--parentID='%s'", formattedVMBusGUIDs)
+	args := []string{"C:\\device-util.exe", "children", parentIDsFlag, "--property=location"}
+	req := &shimdiag.ExecProcessRequest{
+		Args:    args,
+		Workdir: "C:\\",
+		Stdout:  out.Name(),
+	}
+	exitCode, err := ExecInUvm(ctx, coi.HostingSystem, req)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to find devices with exit code %d", exitCode)
+	}
+	r := bufio.NewReader(out)
+	var readErr error
+	var devicePath []byte
+	for readErr != io.EOF {
+		devicePath, readErr = r.ReadSlice(',')
+		if len(devicePath) != 0 {
+			// remove the comma at the end of the line
+			id := string(devicePath[:len(devicePath)-1])
+			specDev := specs.WindowsDevice{
+				ID:     id,
+				IDType: idType,
+			}
+			result = append(result, specDev)
+		}
+	}
+	return result, nil
+}
+
+func buildPnPEnumDevicesArgs(id string) []string {
+	return []string{"pnputil.exe", "/enum-devices", "/instanceid", id, "/relations", ";"}
+}
+
+// getBusAssignedDevices batches the command to find parent devices' children in the uvm
+// then executes it in the uvm and returns a slice of the resulting child device instance IDs.
+// This assumes that we only assign one virtual function to each vpci device assignment request we've made.
+func getBusAssignedDevices(ctx context.Context, coi *createOptionsInternal, vmbusInstanceIDs []string, idType string) ([]specs.WindowsDevice, error) {
+	result := []specs.WindowsDevice{}
+	out := os.Stdout
+	var args []string
+	for _, id := range vmbusInstanceIDs {
+		idArgs := buildPnPEnumDevicesArgs(id)
+		args = append(args, idArgs...)
+	}
+	req := &shimdiag.ExecProcessRequest{
+		Args:    args,
+		Workdir: "C:\\",
+		Stdout:  out.Name(),
+	}
+	exitCode, err := ExecInUvm(ctx, coi.HostingSystem, req)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to find devices with exit code %d", exitCode)
+	}
+
+	r := bufio.NewReader(out)
+	var readErr error
+	var line []byte
+	for readErr != io.EOF {
+		line, _, readErr = r.ReadLine()
+		lineAsString := string(line)
+		if strings.HasPrefix(lineAsString, "Children:") {
+			devicePath := strings.TrimSpace(strings.TrimPrefix(lineAsString, "Children:"))
+			specDev := specs.WindowsDevice{
+				ID:     devicePath,
+				IDType: idType,
+			}
+			result = append(result, specDev)
+		}
+	}
+	return result, nil
 }

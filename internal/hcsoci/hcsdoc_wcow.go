@@ -15,7 +15,6 @@ import (
 	"github.com/Microsoft/hcsshim/internal/oci"
 	"github.com/Microsoft/hcsshim/internal/schema1"
 	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
-	"github.com/Microsoft/hcsshim/internal/schemaversion"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/Microsoft/hcsshim/internal/uvmfolder"
 	"github.com/Microsoft/hcsshim/internal/wclayer"
@@ -181,8 +180,7 @@ func createWindowsContainerDocument(ctx context.Context, coi *createOptionsInter
 	// Strip off the top-most RW/scratch layer as that's passed in separately to HCS for v1
 	v1.LayerFolderPath = coi.Spec.Windows.LayerFolders[len(coi.Spec.Windows.LayerFolders)-1]
 
-	if (schemaversion.IsV21(coi.actualSchemaVersion) && coi.HostingSystem == nil) ||
-		(schemaversion.IsV10(coi.actualSchemaVersion) && coi.Spec.Windows.HyperV == nil) {
+	if coi.isV2Argon() || coi.isV1Argon() {
 		// Argon v1 or v2.
 		const volumeGUIDRegex = `^\\\\\?\\(Volume)\{{0,1}[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}(\}){0,1}\}(|\\)$`
 		if matched, err := regexp.MatchString(volumeGUIDRegex, coi.Spec.Root.Path); !matched || err != nil {
@@ -193,35 +191,33 @@ func createWindowsContainerDocument(ctx context.Context, coi *createOptionsInter
 		}
 		v1.VolumePath = coi.Spec.Root.Path[:len(coi.Spec.Root.Path)-1] // Strip the trailing backslash. Required for v1.
 		v2Container.Storage.Path = coi.Spec.Root.Path
-	} else {
+	} else if coi.isV1Xenon() {
 		// A hosting system was supplied, implying v2 Xenon; OR a v1 Xenon.
-		if schemaversion.IsV10(coi.actualSchemaVersion) {
-			// V1 Xenon
-			v1.HvPartition = true
-			if coi.Spec == nil || coi.Spec.Windows == nil || coi.Spec.Windows.HyperV == nil { // Be resilient to nil de-reference
-				return nil, nil, fmt.Errorf(`invalid container spec - Spec.Windows.HyperV is nil`)
-			}
-			if coi.Spec.Windows.HyperV.UtilityVMPath != "" {
-				// Client-supplied utility VM path
-				v1.HvRuntime = &schema1.HvRuntime{ImagePath: coi.Spec.Windows.HyperV.UtilityVMPath}
-			} else {
-				// Client was lazy. Let's locate it from the layer folders instead.
-				uvmImagePath, err := uvmfolder.LocateUVMFolder(ctx, coi.Spec.Windows.LayerFolders)
-				if err != nil {
-					return nil, nil, err
-				}
-				v1.HvRuntime = &schema1.HvRuntime{ImagePath: filepath.Join(uvmImagePath, `UtilityVM`)}
-			}
+		// V1 Xenon
+		v1.HvPartition = true
+		if coi.Spec == nil || coi.Spec.Windows == nil || coi.Spec.Windows.HyperV == nil { // Be resilient to nil de-reference
+			return nil, nil, fmt.Errorf(`invalid container spec - Spec.Windows.HyperV is nil`)
+		}
+		if coi.Spec.Windows.HyperV.UtilityVMPath != "" {
+			// Client-supplied utility VM path
+			v1.HvRuntime = &schema1.HvRuntime{ImagePath: coi.Spec.Windows.HyperV.UtilityVMPath}
 		} else {
-			// Hosting system was supplied, so is v2 Xenon.
-			v2Container.Storage.Path = coi.Spec.Root.Path
-			if coi.HostingSystem.OS() == "windows" {
-				layers, err := computeV2Layers(ctx, coi.HostingSystem, coi.Spec.Windows.LayerFolders[:len(coi.Spec.Windows.LayerFolders)-1])
-				if err != nil {
-					return nil, nil, err
-				}
-				v2Container.Storage.Layers = layers
+			// Client was lazy. Let's locate it from the layer folders instead.
+			uvmImagePath, err := uvmfolder.LocateUVMFolder(ctx, coi.Spec.Windows.LayerFolders)
+			if err != nil {
+				return nil, nil, err
 			}
+			v1.HvRuntime = &schema1.HvRuntime{ImagePath: filepath.Join(uvmImagePath, `UtilityVM`)}
+		}
+	} else if coi.isV2Xenon() {
+		// Hosting system was supplied, so is v2 Xenon.
+		v2Container.Storage.Path = coi.Spec.Root.Path
+		if coi.HostingSystem.OS() == "windows" {
+			layers, err := computeV2Layers(ctx, coi.HostingSystem, coi.Spec.Windows.LayerFolders[:len(coi.Spec.Windows.LayerFolders)-1])
+			if err != nil {
+				return nil, nil, err
+			}
+			v2Container.Storage.Layers = layers
 		}
 	}
 
@@ -291,7 +287,35 @@ func createWindowsContainerDocument(ctx context.Context, coi *createOptionsInter
 	v1.MappedPipes = mpsv1
 	v2Container.MappedPipes = mpsv2
 
-	// TODO katiewasnothere: add parsing of v2 ONLY assigned devices, parse spec definition of assigned
-	// devices into an option on the hcsshema for the container
+	// add assigned devices to container definition
+	parseAssignedDevices(coi, v2Container)
 	return v1, v2Container, nil
+}
+
+func specHasAssignedDevices(coi *createOptionsInternal) bool {
+	if coi.Spec.Windows != nil && coi.Spec.Windows.Devices != nil &&
+		len(coi.Spec.Windows.Devices) > 0 {
+		return true
+	}
+	return false
+}
+
+// parseAssignedDevices parses assigned devices for the container definition
+// this is currently supported for v2 xenon only
+func parseAssignedDevices(coi *createOptionsInternal, v2 *hcsschema.Container) {
+	if !specHasAssignedDevices(coi) || !coi.isV2Xenon() {
+		return
+	}
+
+	v2AssignedDevices := []hcsschema.Device{}
+
+	for _, d := range coi.Spec.Windows.Devices {
+		if d.IDType == uvm.VPCILocationPathIDType {
+			v2Dev := hcsschema.Device{
+				LocationPath: d.ID,
+			}
+			v2AssignedDevices = append(v2AssignedDevices, v2Dev)
+		}
+	}
+	v2.AssignedDevices = v2AssignedDevices
 }
