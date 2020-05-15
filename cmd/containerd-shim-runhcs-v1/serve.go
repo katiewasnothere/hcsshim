@@ -189,8 +189,7 @@ var serveCommand = cli.Command{
 			// TODO: JTERRY75 We should use a real context with cancellation shared by
 			// the service for shim shutdown gracefully.
 			ctx := context.Background()
-			if err := s.Serve(ctx, sl); err != nil &&
-				!strings.Contains(err.Error(), "use of closed network connection") {
+			if err := trapClosedConnErr(s.Serve(ctx, sl)); err != nil {
 				logrus.WithError(err).Fatal("containerd-shim: ttrpc server failure")
 				serrs <- err
 				return
@@ -278,4 +277,11 @@ func setupDebuggerEvent() {
 	logrus.WithField("event", event).Info("Halting until signalled")
 	windows.WaitForSingleObject(handle, windows.INFINITE)
 	return
+}
+
+func trapClosedConnErr(err error) error {
+	if err == nil || strings.Contains(err.Error(), "use of closed network connection") {
+		return nil
+	}
+	return err
 }

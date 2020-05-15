@@ -141,35 +141,52 @@ func createPod(ctx context.Context, events publisher, req *task.CreateTaskReques
 		id:     req.ID,
 		host:   parent,
 	}
-	// TOOD: JTERRY75 - There is a bug in the compartment activation for Windows
+
+	var netSetup hcsoci.NetworkSetup
+	if parent != nil {
+		if parent.NCProxyEnabled() {
+			caAddr := fmt.Sprintf(podComputeAgentAddrFmt, req.ID)
+			server, ttrpcListener, err := setupComputeAgent(caAddr, parent)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to setup compute agent service")
+			}
+
+			serveComputeAgent(ctx, server, ttrpcListener)
+
+			cid := req.ID
+			if id, ok := s.Annotations[oci.AnnotationNcproxyContainerID]; ok {
+				cid = id
+			}
+
+			netSetup = &hcsoci.ExternalNetworkSetup{
+				VM:          parent,
+				CaAddr:      caAddr,
+				ContainerID: cid,
+			}
+		} else {
+			netSetup = &hcsoci.LocalNetworkSetup{VM: parent}
+		}
+	}
+
+	// TODO: JTERRY75 - There is a bug in the compartment activation for Windows
 	// Process isolated that requires us to create the real pause container to
 	// hold the network compartment open. This is not required for Windows
 	// Hypervisor isolated. When we have a build that supports this for Windows
 	// Process isolated make sure to move back to this model.
-	if isWCOW && parent != nil {
-		// For WCOW we fake out the init task since we dont need it. We only
-		// need to provision the guest network namespace if this is hypervisor
-		// isolated. Process isolated WCOW gets the namespace endpoints
-		// automatically.
-		if parent != nil {
-			nsid := ""
-			if s.Windows != nil && s.Windows.Network != nil {
-				nsid = s.Windows.Network.NetworkNamespace
-			}
 
-			if nsid != "" {
-				endpoints, err := hcsoci.GetNamespaceEndpoints(ctx, nsid)
-				if err != nil {
-					return nil, err
-				}
-				err = parent.AddNetNS(ctx, nsid)
-				if err != nil {
-					return nil, err
-				}
-				err = parent.AddEndpointsToNS(ctx, nsid, endpoints)
-				if err != nil {
-					return nil, err
-				}
+	// For WCOW we fake out the init task since we dont need it. We only
+	// need to provision the guest network namespace if this is hypervisor
+	// isolated. Process isolated WCOW gets the namespace endpoints
+	// automatically.
+	nsid := ""
+	if isWCOW && parent != nil {
+		if s.Windows != nil && s.Windows.Network != nil {
+			nsid = s.Windows.Network.NetworkNamespace
+		}
+
+		if nsid != "" {
+			if err := netSetup.ConfigureNetworking(ctx, nsid); err != nil {
+				return nil, errors.Wrapf(err, "failed to setup networking for pod %q", req.ID)
 			}
 		}
 		p.sandboxTask = newWcowPodSandboxTask(ctx, events, req.ID, req.Bundle, parent)
@@ -200,13 +217,12 @@ func createPod(ctx context.Context, events publisher, req *task.CreateTaskReques
 		}
 		// LCOW (and WCOW Process Isolated for the time being) requires a real
 		// task for the sandbox.
-		lt, err := newHcsTask(ctx, events, parent, true, req, s)
+		lt, err := newHcsTask(ctx, events, parent, true, req, s, netSetup)
 		if err != nil {
 			return nil, err
 		}
 		p.sandboxTask = lt
 	}
-
 	return &p, nil
 }
 
@@ -230,7 +246,7 @@ type pod struct {
 	// It MUST be treated as read only in the lifetime of the pod.
 	host *uvm.UtilityVM
 
-	// wcl is the worload create mutex. All calls to CreateTask must hold this
+	// wcl is the workload create mutex. All calls to CreateTask must hold this
 	// lock while the ID reservation takes place. Once the ID is held it is safe
 	// to release the lock to allow concurrent creates.
 	wcl           sync.Mutex
@@ -283,7 +299,7 @@ func (p *pod) CreateTask(ctx context.Context, req *task.CreateTaskRequest, s *sp
 			sid)
 	}
 
-	st, err := newHcsTask(ctx, p.events, p.host, false, req, s)
+	st, err := newHcsTask(ctx, p.events, p.host, false, req, s, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -34,7 +34,6 @@ var (
 // where layer1 is the base read-only layer, layern is the top-most read-only
 // layer, and scratch is the RW layer. This is for historical reasons only.
 type CreateOptions struct {
-
 	// Common parameters
 	ID               string             // Identifier for the container
 	Owner            string             // Specifies the owner. Defaults to executable name.
@@ -53,6 +52,9 @@ type CreateOptions struct {
 	// ScaleCPULimitsToSandbox indicates that the container CPU limits should be adjusted to account
 	// for the difference in CPU count between the host and the UVM.
 	ScaleCPULimitsToSandbox bool
+
+	// Interface to determine how to setup a pods networking (internal vs. external via a proxy)
+	NetSetup NetworkSetup
 }
 
 // createOptionsInternal is the set of user-supplied create options, but includes internal
@@ -149,19 +151,16 @@ func CreateContainer(ctx context.Context, createOptions *CreateOptions) (_ cow.C
 			// container but not a workload container in a sandbox that inherits
 			// the namespace.
 			if ct == oci.KubernetesContainerTypeNone || ct == oci.KubernetesContainerTypeSandbox {
-				endpoints, err := GetNamespaceEndpoints(ctx, coi.actualNetworkNamespace)
-				if err != nil {
-					return nil, r, err
-				}
-				err = coi.HostingSystem.AddNetNS(ctx, coi.actualNetworkNamespace)
-				if err != nil {
-					return nil, r, err
-				}
-				err = coi.HostingSystem.AddEndpointsToNS(ctx, coi.actualNetworkNamespace, endpoints)
-				if err != nil {
-					// Best effort clean up the NS
-					coi.HostingSystem.RemoveNetNS(ctx, coi.actualNetworkNamespace)
-					return nil, r, err
+				if coi.NetSetup != nil {
+					if err := coi.NetSetup.ConfigureNetworking(ctx, coi.actualNetworkNamespace); err != nil {
+						return nil, r, err
+					}
+				} else {
+					// No network interface passed in, just set up locally.
+					localNet := &LocalNetworkSetup{coi.HostingSystem}
+					if err := localNet.ConfigureNetworking(ctx, coi.actualNetworkNamespace); err != nil {
+						return nil, r, err
+					}
 				}
 				r.SetAddedNetNSToVM(true)
 			}
