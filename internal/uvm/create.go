@@ -196,6 +196,7 @@ func (uvm *UtilityVM) Close() (err error) {
 	windows.Close(uvm.vmmemProcess)
 
 	if uvm.hcsSystem != nil {
+		uvm.ReleaseCPUGroup(ctx)
 		uvm.hcsSystem.Terminate(ctx)
 		uvm.Wait()
 	}
