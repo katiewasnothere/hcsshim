@@ -1,4 +1,4 @@
-package hcsoci
+package shimdiag
 
 import (
 	"context"
@@ -6,11 +6,10 @@ import (
 
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/logfields"
-	"github.com/Microsoft/hcsshim/internal/shimdiag"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 )
 
-func ExecInUvm(ctx context.Context, vm *uvm.UtilityVM, req *shimdiag.ExecProcessRequest) (int, error) {
+func ExecInUvm(ctx context.Context, vm *uvm.UtilityVM, req *ExecProcessRequest) (int, error) {
 	if len(req.Args) == 0 {
 		return 0, errors.New("missing command")
 	}

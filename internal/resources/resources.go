@@ -1,4 +1,4 @@
-package hcsoci
+package resources
 
 import (
 	"context"
@@ -11,13 +11,13 @@ import (
 )
 
 const (
-	scratchPath = "scratch"
-	rootfsPath  = "rootfs"
+	ScratchPath = "scratch"
+	RootfsPath  = "rootfs"
 )
 
-// NetNS returns the network namespace for the container
-func (r *Resources) NetNS() string {
-	return r.netNS
+// GetNetNS returns the network namespace for the container
+func (r *Resources) GetNetNS() string {
+	return r.NetNS
 }
 
 // Resources is the structure returned as part of creating a container. It holds
@@ -25,23 +25,23 @@ func (r *Resources) NetNS() string {
 // it in a call to ReleaseResources to ensure everything is cleaned up when a
 // container exits.
 type Resources struct {
-	id string
+	ID string
 	// containerRootInUVM is the base path in a utility VM where elements relating
 	// to a container are exposed. For example, the mounted filesystem; the runtime
 	// spec (in the case of LCOW); overlay and scratch (in the case of LCOW).
 	//
 	// For WCOW, this will be under wcowRootInUVM. For LCOW, this will be under
 	// lcowRootInUVM, this will also be the "OCI Bundle Path".
-	containerRootInUVM string
-	netNS              string
+	ContainerRootInUVM string
+	NetNS              string
 	// createNetNS indicates if the network namespace has been created
-	createdNetNS bool
+	CreatedNetNS bool
 	// addedNetNSToVM indicates if the network namespace has been added to the containers utility VM
-	addedNetNSToVM bool
+	AddedNetNSToVM bool
 	// layers is a pointer to a struct of the layers paths of a container
-	layers *ImageLayers
+	Layers *ImageLayers
 	// resources is an array of the resources associated with a container
-	resources []ResourceCloser
+	Resources []ResourceCloser
 }
 
 // ResourceCloser is a generic interface for the releasing of a resource. If a resource implements
@@ -53,13 +53,13 @@ type ResourceCloser interface {
 
 // AutoManagedVHD struct representing a VHD that will be cleaned up automatically.
 type AutoManagedVHD struct {
-	hostPath string
+	HostPath string
 }
 
 // Release removes the vhd.
 func (vhd *AutoManagedVHD) Release(ctx context.Context) error {
-	if err := os.Remove(vhd.hostPath); err != nil {
-		log.G(ctx).WithField("hostPath", vhd.hostPath).WithError(err).Error("failed to remove automanage-virtual-disk")
+	if err := os.Remove(vhd.HostPath); err != nil {
+		log.G(ctx).WithField("hostPath", vhd.HostPath).WithError(err).Error("failed to remove automanage-virtual-disk")
 	}
 	return nil
 }
@@ -69,11 +69,11 @@ func (vhd *AutoManagedVHD) Release(ctx context.Context) error {
 // TODO: make method on Resources struct.
 func ReleaseResources(ctx context.Context, r *Resources, vm *uvm.UtilityVM, all bool) error {
 	if vm != nil {
-		if r.addedNetNSToVM {
-			if err := vm.RemoveNetNS(ctx, r.netNS); err != nil {
+		if r.AddedNetNSToVM {
+			if err := vm.RemoveNetNS(ctx, r.NetNS); err != nil {
 				log.G(ctx).Warn(err)
 			}
-			r.addedNetNSToVM = false
+			r.AddedNetNSToVM = false
 		}
 	}
 
@@ -82,18 +82,18 @@ func ReleaseResources(ctx context.Context, r *Resources, vm *uvm.UtilityVM, all 
 	// added are cleaned up first. We don't return an error right away
 	// so that other resources still get cleaned up in the case of one
 	// or more failing.
-	for i := len(r.resources) - 1; i >= 0; i-- {
-		switch r.resources[i].(type) {
+	for i := len(r.Resources) - 1; i >= 0; i-- {
+		switch r.Resources[i].(type) {
 		case *uvm.NetworkEndpoints:
-			if r.createdNetNS {
-				if err := r.resources[i].Release(ctx); err != nil {
+			if r.CreatedNetNS {
+				if err := r.Resources[i].Release(ctx); err != nil {
 					log.G(ctx).WithError(err).Error("failed to release container resource")
 					releaseErr = true
 				}
-				r.createdNetNS = false
+				r.CreatedNetNS = false
 			}
 		case *CCGInstance:
-			if err := r.resources[i].Release(ctx); err != nil {
+			if err := r.Resources[i].Release(ctx); err != nil {
 				log.G(ctx).WithError(err).Error("failed to release container resource")
 				releaseErr = true
 			}
@@ -102,14 +102,14 @@ func ReleaseResources(ctx context.Context, r *Resources, vm *uvm.UtilityVM, all 
 			// have been added in the first place. All resources have embedded
 			// vm they belong to.
 			if all {
-				if err := r.resources[i].Release(ctx); err != nil {
+				if err := r.Resources[i].Release(ctx); err != nil {
 					log.G(ctx).WithError(err).Error("failed to release container resource")
 					releaseErr = true
 				}
 			}
 		}
 	}
-	r.resources = nil
+	r.Resources = nil
 	if releaseErr {
 		return errors.New("failed to release one or more container resources")
 	}
@@ -117,16 +117,16 @@ func ReleaseResources(ctx context.Context, r *Resources, vm *uvm.UtilityVM, all 
 	// cleanup container state
 	if vm != nil {
 		if vm.DeleteContainerStateSupported() {
-			if err := vm.DeleteContainerState(ctx, r.id); err != nil {
+			if err := vm.DeleteContainerState(ctx, r.ID); err != nil {
 				log.G(ctx).WithError(err).Error("failed to delete container state")
 			}
 		}
 	}
 
-	if r.layers != nil {
+	if r.Layers != nil {
 		// TODO dcantah: Either make it so layers doesn't rely on the all bool for cleanup logic
 		// or find a way to factor out the all bool in favor of something else.
-		if err := r.layers.Release(ctx, all); err != nil {
+		if err := r.Layers.Release(ctx, all); err != nil {
 			return err
 		}
 	}
@@ -137,5 +137,5 @@ func containerRootfsPath(uvm *uvm.UtilityVM, rootPath string) string {
 	if uvm.OS() == "windows" {
 		return ospath.Join(uvm.OS(), rootPath)
 	}
-	return ospath.Join(uvm.OS(), rootPath, rootfsPath)
+	return ospath.Join(uvm.OS(), rootPath, RootfsPath)
 }

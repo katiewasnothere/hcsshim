@@ -545,19 +545,19 @@ func createContainerInHost(c *container, vm *uvm.UtilityVM) (err error) {
 		if err != nil {
 			hc.Terminate(context.Background())
 			hc.Wait()
-			hcsoci.ReleaseResources(context.Background(), resources, vm, true)
+			resources.ReleaseResources(context.Background(), r, vm, true)
 		}
 	}()
 
 	// Record the network namespace to support namespace sharing by container ID.
-	if resources.NetNS() != "" {
-		err = stateKey.Set(c.ID, keyNetNS, resources.NetNS())
+	if r.GetNetNS() != "" {
+		err = stateKey.Set(c.ID, keyNetNS, r.GetNetNS())
 		if err != nil {
 			return err
 		}
 	}
 
-	err = stateKey.Set(c.ID, keyResources, resources)
+	err = stateKey.Set(c.ID, keyResources, r)
 	if err != nil {
 		return err
 	}

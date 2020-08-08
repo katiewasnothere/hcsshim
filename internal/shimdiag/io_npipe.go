@@ -1,4 +1,4 @@
-package hcsoci
+package shimdiag
 
 import (
 	"context"

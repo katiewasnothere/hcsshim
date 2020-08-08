@@ -1,6 +1,6 @@
 // +build windows
 
-package hcsoci
+package devices
 
 import (
 	"context"
@@ -9,15 +9,16 @@ import (
 	"strings"
 
 	"github.com/Microsoft/hcsshim/internal/oci"
+	"github.com/Microsoft/hcsshim/internal/resources"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/pkg/errors"
 )
 
 // getAssignedDeviceUtilityTool gets the path to device-util on the server host
-func getAssignedDeviceUtilityTool(coi *createOptionsInternal) (string, error) {
-	tools, ok := coi.Spec.Annotations[oci.AnnotationAssignedDeviceUtilityTool]
+func getAssignedDeviceUtilityTool(annotations map[string]string) (string, error) {
+	tools, ok := annotations[oci.AnnotationAssignedDeviceUtilityTool]
 	if !ok || tools == "" {
-		return "", fmt.Errorf("no driver tools were specified for %s", coi.actualID)
+		return "", errors.New("no driver tools were specified")
 	}
 	if _, err := os.Stat(tools); err != nil {
 		return "", errors.Wrapf(err, "failed to find device installation tools at %s", tools)
@@ -27,8 +28,8 @@ func getAssignedDeviceUtilityTool(coi *createOptionsInternal) (string, error) {
 
 // getAssignedDeviceKernelDrivers gets any device drivers specified on the spec.
 // Drivers are optional, therefore do not return an error if none are on the spec.
-func getAssignedDeviceKernelDrivers(coi *createOptionsInternal) ([]string, error) {
-	csDrivers, ok := coi.Spec.Annotations[oci.AnnotationAssignedDeviceKernelDrivers]
+func getAssignedDeviceKernelDrivers(annotations map[string]string) ([]string, error) {
+	csDrivers, ok := annotations[oci.AnnotationAssignedDeviceKernelDrivers]
 	if !ok || csDrivers == "" {
 		return nil, nil
 	}
@@ -43,18 +44,18 @@ func getAssignedDeviceKernelDrivers(coi *createOptionsInternal) ([]string, error
 
 // setupDeviceUtilTool finds the utility tool's host path, mounts it using vsmb, and
 // returns the UVM path to the tools
-func setupDeviceUtilTool(ctx context.Context, coi *createOptionsInternal, r *Resources) (string, error) {
-	toolHostPath, err := getAssignedDeviceUtilityTool(coi)
+func setupDeviceUtilTool(ctx context.Context, vm *uvm.UtilityVM, annotations map[string]string, resources []resources.ResourceCloser) (string, error) {
+	toolHostPath, err := getAssignedDeviceUtilityTool(annotations)
 	if err != nil {
 		return "", err
 	}
-	return addVSMBToUVM(ctx, coi.HostingSystem, r, toolHostPath)
+	return addVSMBToUVM(ctx, vm, resources, toolHostPath)
 }
 
 // installWindowsDrivers finds specified kernel driver directories, mounts them using vsmb,
 // then installs them in the UVM
-func installWindowsDrivers(ctx context.Context, coi *createOptionsInternal, resources *Resources) error {
-	drivers, err := getAssignedDeviceKernelDrivers(coi)
+func installWindowsDrivers(ctx context.Context, vm *uvm.UtilityVM, annotations map[string]string, resources []resources.ResourceCloser) error {
+	drivers, err := getAssignedDeviceKernelDrivers(annotations)
 	if err != nil {
 		return err
 	}
@@ -62,16 +63,16 @@ func installWindowsDrivers(ctx context.Context, coi *createOptionsInternal, reso
 		// no drivers were specified, skip installing drivers
 		return nil
 	}
-	driverUVMPaths, err := mountDrivers(ctx, coi.HostingSystem, resources, drivers)
+	driverUVMPaths, err := mountDrivers(ctx, vm, resources, drivers)
 	if err != nil {
 		return err
 	}
-	return execPnPInstallAllDrivers(ctx, coi.HostingSystem, driverUVMPaths)
+	return execPnPInstallAllDrivers(ctx, vm, driverUVMPaths)
 }
 
 // mountDrivers mounts all specified driver files using VSMB and returns their path
 // in the UVM
-func mountDrivers(ctx context.Context, vm *uvm.UtilityVM, r *Resources, hostPaths []string) (resultUVMPaths []string, err error) {
+func mountDrivers(ctx context.Context, vm *uvm.UtilityVM, r []resources.ResourceCloser, hostPaths []string) (resultUVMPaths []string, err error) {
 	for _, d := range hostPaths {
 		uvmPath, err := addVSMBToUVM(ctx, vm, r, d)
 		if err != nil {
@@ -82,13 +83,13 @@ func mountDrivers(ctx context.Context, vm *uvm.UtilityVM, r *Resources, hostPath
 	return resultUVMPaths, nil
 }
 
-func addVSMBToUVM(ctx context.Context, vm *uvm.UtilityVM, r *Resources, hostPath string) (string, error) {
+func addVSMBToUVM(ctx context.Context, vm *uvm.UtilityVM, resources []resources.ResourceCloser, hostPath string) (string, error) {
 	options := vm.DefaultVSMBOptions(true)
 	share, err := vm.AddVSMB(ctx, hostPath, options)
 	if err != nil {
 		return "", fmt.Errorf("failed to add VSMB share to utility VM for path %+v: %s", hostPath, err)
 	}
-	r.resources = append(r.resources, share)
+	resources = append(resources, share)
 	return vm.GetVSMBUvmPath(ctx, hostPath, true)
 }
 

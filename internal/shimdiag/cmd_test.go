@@ -1,6 +1,6 @@
 // build +windows
 
-package hcsoci
+package shimdiag
 
 import (
 	"bytes"

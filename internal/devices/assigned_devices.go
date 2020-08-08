@@ -1,6 +1,6 @@
 // +build windows
 
-package hcsoci
+package devices
 
 import (
 	"context"
@@ -12,21 +12,14 @@ import (
 	winio "github.com/Microsoft/go-winio"
 	"github.com/Microsoft/go-winio/pkg/guid"
 	"github.com/Microsoft/hcsshim/internal/log"
+	"github.com/Microsoft/hcsshim/internal/resources"
 	"github.com/Microsoft/hcsshim/internal/shimdiag"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 )
 
-func specHasAssignedDevices(coi *createOptionsInternal) bool {
-	if (coi.Spec.Windows != nil) && (coi.Spec.Windows.Devices != nil) &&
-		(len(coi.Spec.Windows.Devices) > 0) {
-		return true
-	}
-	return false
-}
-
-// handleAssignedDevicesWindows does all of the work to setup the hosting UVM and retrieve
+// HandleAssignedDevicesWindows does all of the work to setup the hosting UVM and retrieve
 // device information for adding assigned devices on a WCOW container definition.
 //
 // First, devices are assigned into the hosting UVM. Drivers are then added into the UVM and
@@ -35,38 +28,59 @@ func specHasAssignedDevices(coi *createOptionsInternal) bool {
 //
 // Then we find the location paths of the target devices in the UVM and return the results
 // as WindowsDevices.
-func handleAssignedDevicesWindows(ctx context.Context, coi *createOptionsInternal, r *Resources) ([]specs.WindowsDevice, error) {
-	vpciVMBusInstanceIDs := []string{}
-	for _, d := range coi.Spec.Windows.Devices {
-		if d.IDType == uvm.VPCIDeviceIDType || d.IDType == uvm.VPCIDeviceIDTypeLegacy {
-			vpci, err := coi.HostingSystem.AssignDevice(ctx, d.ID)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to assign device %s of type %s to pod %s", d.ID, d.IDType, coi.HostingSystem.ID())
+func HandleAssignedDevicesWindows(ctx context.Context, vm *uvm.UtilityVM, windowsDevices []specs.WindowsDevice, annotations map[string]string) (resources []resources.ResourceCloser, resultDevices []specs.WindowsDevice, err error) {
+	defer func() {
+		if err != nil {
+			for _, r := range resources {
+				r.Release(ctx)
 			}
-			r.resources = append(r.resources, vpci)
-			vmBusInstanceID := coi.HostingSystem.GetAssignedDeviceParentID(vpci.VMBusGUID)
+		}
+	}()
+	vpciVMBusInstanceIDs, err := assignWindowsDevices(ctx, vm, windowsDevices, resources)
+	if err != nil {
+		return resources, nil, err
+	}
+
+	if err := installWindowsDrivers(ctx, vm, annotations, resources); err != nil {
+		return resources, nil, err
+	}
+	deviceUtilPath, err := setupDeviceUtilTool(ctx, vm, annotations, resources)
+	if err != nil {
+		return resources, nil, err
+	}
+
+	resultDevices, err = getChildrenDeviceLocationPaths(ctx, vm, vpciVMBusInstanceIDs, deviceUtilPath)
+	if err != nil {
+		return resources, nil, err
+	}
+
+	return resources, resultDevices, nil
+}
+
+func assignWindowsDevices(ctx context.Context, vm *uvm.UtilityVM, windowsDevices []specs.WindowsDevice, resources []resources.ResourceCloser) ([]string, error) {
+	vpciVMBusInstanceIDs := []string{}
+	for _, d := range windowsDevices {
+		if d.IDType == uvm.VPCIDeviceIDType || d.IDType == uvm.VPCIDeviceIDTypeLegacy {
+			vpci, err := vm.AssignDevice(ctx, d.ID)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to assign device %s of type %s to pod %s", d.ID, d.IDType, vm.ID())
+			}
+			resources = append(resources, vpci)
+			vmBusInstanceID := vm.GetAssignedDeviceParentID(vpci.VMBusGUID)
 			log.G(ctx).WithField("vmbus id", vmBusInstanceID).Info("vmbus instance ID")
 
 			vpciVMBusInstanceIDs = append(vpciVMBusInstanceIDs, vmBusInstanceID)
+		} else {
+			return nil, fmt.Errorf("device type %s for device %s is not supported on windows", d.IDType, d.ID)
 		}
 	}
-	if len(vpciVMBusInstanceIDs) == 0 {
-		return nil, fmt.Errorf("no assignable devices on the spec %v", coi.Spec.Windows.Devices)
-	}
-	if err := installWindowsDrivers(ctx, coi, r); err != nil {
-		return nil, err
-	}
-	deviceUtilPath, err := setupDeviceUtilTool(ctx, coi, r)
-	if err != nil {
-		return nil, err
-	}
-	return getChildrenDeviceLocationPaths(ctx, coi, vpciVMBusInstanceIDs, deviceUtilPath)
+	return vpciVMBusInstanceIDs, nil
 }
 
 // getChildrenDeviceLocationPaths queries the UVM with the device-util tool with the formatted
 // parent bus device for the children devices' location paths from the uvm's view.
 // Returns a slice of WindowsDevices created from the resulting children location paths
-func getChildrenDeviceLocationPaths(ctx context.Context, coi *createOptionsInternal, vmBusInstanceIDs []string, deviceUtilPath string) ([]specs.WindowsDevice, error) {
+func getChildrenDeviceLocationPaths(ctx context.Context, vm *uvm.UtilityVM, vmBusInstanceIDs []string, deviceUtilPath string) ([]specs.WindowsDevice, error) {
 	p, l, err := createNamedPipeListener()
 	if err != nil {
 		return nil, err
@@ -83,7 +97,7 @@ func getChildrenDeviceLocationPaths(ctx context.Context, coi *createOptionsInter
 		Args:   args,
 		Stdout: p,
 	}
-	exitCode, err := ExecInUvm(ctx, coi.HostingSystem, req)
+	exitCode, err := shimdiag.ExecInUvm(ctx, vm, req)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to find devices with exit code %d", exitCode)
 	}

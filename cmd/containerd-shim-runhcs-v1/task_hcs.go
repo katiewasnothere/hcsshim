@@ -15,6 +15,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/hcsoci"
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/oci"
+	"github.com/Microsoft/hcsshim/internal/resources"
 	"github.com/Microsoft/hcsshim/internal/schema1"
 	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 	"github.com/Microsoft/hcsshim/internal/shimdiag"
@@ -120,7 +121,7 @@ func newHcsTask(
 
 	owner := filepath.Base(os.Args[0])
 
-	io, err := hcsoci.NewNpipeIO(ctx, req.Stdin, req.Stdout, req.Stderr, req.Terminal)
+	io, err := shimdiag.NewNpipeIO(ctx, req.Stdin, req.Stdout, req.Stderr, req.Terminal)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +221,7 @@ type hcsTask struct {
 	//
 	// It MUST be treated as read only in the lifetime of this task EXCEPT after
 	// a Kill to the init task in which all resources must be released.
-	cr *hcsoci.Resources
+	cr *resources.Resources
 	// init is the init process of the container.
 	//
 	// Note: the invariant `container state == init.State()` MUST be true. IE:
@@ -269,7 +270,7 @@ func (ht *hcsTask) CreateExec(ctx context.Context, req *task.ExecProcessRequest,
 		return errors.Wrapf(errdefs.ErrFailedPrecondition, "exec: '' in task: '%s' must be running to create additional execs", ht.id)
 	}
 
-	io, err := hcsoci.NewNpipeIO(ctx, req.Stdin, req.Stdout, req.Stderr, req.Terminal)
+	io, err := shimdiag.NewNpipeIO(ctx, req.Stdin, req.Stdout, req.Stderr, req.Terminal)
 	if err != nil {
 		return err
 	}
@@ -532,7 +533,7 @@ func (ht *hcsTask) close(ctx context.Context) {
 			}
 
 			// Release any resources associated with the container.
-			if err := hcsoci.ReleaseResources(ctx, ht.cr, ht.host, true); err != nil {
+			if err := resources.ReleaseResources(ctx, ht.cr, ht.host, true); err != nil {
 				log.G(ctx).WithError(err).Error("failed to release container resources")
 			}
 
@@ -581,7 +582,7 @@ func (ht *hcsTask) ExecInHost(ctx context.Context, req *shimdiag.ExecProcessRequ
 	if ht.host == nil {
 		return 0, errors.New("task is not isolated")
 	}
-	return hcsoci.ExecInUvm(ctx, ht.host, req)
+	return shimdiag.ExecInUvm(ctx, ht.host, req)
 }
 
 func (ht *hcsTask) DumpGuestStacks(ctx context.Context) string {

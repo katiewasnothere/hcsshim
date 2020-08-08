@@ -1,6 +1,6 @@
 // +build windows
 
-package hcsoci
+package devices
 
 import (
 	"context"
@@ -26,7 +26,7 @@ func createPnPInstallDriverCommand(driverUVMPath string) []string {
 		dirFormatted,
 		"/subdirs",
 		"/install",
-		"&",
+		// 		"&",
 	}
 	return args
 }
@@ -45,14 +45,18 @@ func createPnPInstallAllDriverArgs(driverUVMDirs []string) []string {
 // execPnPInstallAllDrivers makes the call to exec in the uvm the pnp command
 // that installs all drivers previously mounted into the uvm.
 func execPnPInstallAllDrivers(ctx context.Context, vm *uvm.UtilityVM, driverDirs []string) error {
-	args := createPnPInstallAllDriverArgs(driverDirs)
-	req := &shimdiag.ExecProcessRequest{
-		Args: args,
+	//args := createPnPInstallAllDriverArgs(driverDirs)
+
+	for _, d := range driverDirs {
+		driverArgs := createPnPInstallDriverCommand(d)
+		req := &shimdiag.ExecProcessRequest{
+			Args: driverArgs,
+		}
+		exitCode, err := shimdiag.ExecInUvm(ctx, vm, req)
+		if err != nil {
+			return errors.Wrapf(err, "failed to install drivers in uvm with exit code %d", exitCode)
+		}
+		log.G(ctx).WithField("added drivers", driverDirs).Debug("installed drivers")
 	}
-	exitCode, err := ExecInUvm(ctx, vm, req)
-	if err != nil {
-		return errors.Wrapf(err, "failed to install drivers in uvm with exit code %d", exitCode)
-	}
-	log.G(ctx).WithField("added drivers", driverDirs).Debug("installed drivers")
 	return nil
 }

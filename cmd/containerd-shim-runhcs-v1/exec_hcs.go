@@ -8,8 +8,8 @@ import (
 
 	"github.com/Microsoft/hcsshim/internal/cow"
 	"github.com/Microsoft/hcsshim/internal/guestrequest"
-	"github.com/Microsoft/hcsshim/internal/hcsoci"
 	"github.com/Microsoft/hcsshim/internal/log"
+	"github.com/Microsoft/hcsshim/internal/shimdiag"
 	"github.com/Microsoft/hcsshim/internal/signals"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/Microsoft/hcsshim/osversion"
@@ -49,7 +49,7 @@ func newHcsExec(
 	id, bundle string,
 	isWCOW bool,
 	spec *specs.Process,
-	io hcsoci.UpstreamIO) shimExec {
+	io shimdiag.UpstreamIO) shimExec {
 	log.G(ctx).WithFields(logrus.Fields{
 		"tid":    tid,
 		"eid":    id, // Init exec ID is always same as Task ID
@@ -118,7 +118,7 @@ type hcsExec struct {
 	// create time in order to be valid.
 	//
 	// This MUST be treated as read only in the lifetime of the exec.
-	io              hcsoci.UpstreamIO
+	io              shimdiag.UpstreamIO
 	processDone     chan struct{}
 	processDoneOnce sync.Once
 
@@ -129,7 +129,7 @@ type hcsExec struct {
 	pid        int
 	exitStatus uint32
 	exitedAt   time.Time
-	p          *hcsoci.Cmd
+	p          *shimdiag.Cmd
 
 	// exited is a wait block which waits async for the process to exit.
 	exited     chan struct{}
@@ -205,7 +205,7 @@ func (he *hcsExec) Start(ctx context.Context) (err error) {
 			}
 		}()
 	}
-	cmd := &hcsoci.Cmd{
+	cmd := &shimdiag.Cmd{
 		Host:   he.c,
 		Stdin:  he.io.Stdin(),
 		Stdout: he.io.Stdout(),
