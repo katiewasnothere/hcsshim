@@ -92,4 +92,7 @@ type shimTask interface {
 	// If the host is hypervisor isolated and this task owns the host additional
 	// metrics on the UVM may be returned as well.
 	Stats(ctx context.Context) (*stats.Statistics, error)
+
+	// TODO katiewasnothere
+	Update(ctx context.Context, req *task.UpdateTaskRequest) error
 }

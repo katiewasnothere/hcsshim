@@ -91,6 +91,10 @@ func (tst *testShimTask) DumpGuestStacks(ctx context.Context) string {
 	return ""
 }
 
+func (tst *testShimTask) Update(ctx context.Context, req *task.UpdateTaskRequest) error {
+	return nil
+}
+
 func (tst *testShimTask) Share(ctx context.Context, req *shimdiag.ShareRequest) error {
 	return errors.New("not implemented")
 }

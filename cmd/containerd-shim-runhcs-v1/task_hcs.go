@@ -611,6 +611,11 @@ func (ht *hcsTask) DumpGuestStacks(ctx context.Context) string {
 	return ""
 }
 
+func (ht *hcsTask) Update(ctx context.Context, req *task.UpdateTaskRequest) error {
+	// todo katiewasnothere: implement
+	return nil
+}
+
 func (ht *hcsTask) Share(ctx context.Context, req *shimdiag.ShareRequest) error {
 	if ht.host == nil {
 		return errTaskNotIsolated

@@ -1,0 +1,36 @@
+syntax = 'proto3';
+
+package containerd.runhcs.criextension.v1;
+
+import weak "gogoproto/gogo.proto";
+
+option (gogoproto.goproto_getters_all) = true;
+
+option go_package = "github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/criextension;criextension";
+
+service CRIExtensionRuntimeService {
+    rpc UpdateContainerResourcesV2(UpdateContainerResourcesV2Request) returns (UpdateContainerResourcesV2Response) {}
+}
+
+message UpdateContainerResourcesV2Request {
+    string container_id = 1; 
+    WindowsContainerResourcesV2 windows = 2;
+    map<string, string> annotations = 3;
+}
+
+message UpdateContainerResourcesV2Response {}
+
+message WindowsContainerResourcesV2 {
+    // CPU shares (relative weight vs. other containers). Default: 0 (not specified).
+    int64 cpu_shares = 1;
+    // Number of CPUs available to the container. Default: 0 (not specified).
+    int64 cpu_count = 2;
+    // Specifies the portion of processor cycles that this container can use as a percentage times 100.
+    int64 cpu_maximum = 3;
+    // Memory limit in bytes. Default: 0 (not specified).
+    int64 memory_limit_in_bytes = 4;
+
+    // TODO katiewasnothere added this 
+    int64 scheduler_priority = 5;
+    int64 cpu_cap = 6;
+}

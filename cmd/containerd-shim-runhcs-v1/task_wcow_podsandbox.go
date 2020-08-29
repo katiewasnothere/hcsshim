@@ -239,6 +239,11 @@ func (wpst *wcowPodSandboxTask) DumpGuestStacks(ctx context.Context) string {
 	return ""
 }
 
+func (wpst *wcowPodSandboxTask) Update(ctx context.Context, req *task.UpdateTaskRequest) error {
+	// todo katiewasnothere: implement
+	return nil
+}
+
 func (wpst *wcowPodSandboxTask) Share(ctx context.Context, req *shimdiag.ShareRequest) error {
 	if wpst.host == nil {
 		return errTaskNotIsolated
