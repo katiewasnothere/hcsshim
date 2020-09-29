@@ -38,14 +38,15 @@ func errnoErr(e syscall.Errno) error {
 
 var (
 	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
+	modntdll    = windows.NewLazySystemDLL("ntdll.dll")
 	modadvapi32 = windows.NewLazySystemDLL("advapi32.dll")
 	modcfgmgr32 = windows.NewLazySystemDLL("cfgmgr32.dll")
-	modntdll    = windows.NewLazySystemDLL("ntdll.dll")
 
 	procIsProcessInJob                       = modkernel32.NewProc("IsProcessInJob")
 	procQueryInformationJobObject            = modkernel32.NewProc("QueryInformationJobObject")
 	procOpenJobObjectW                       = modkernel32.NewProc("OpenJobObjectW")
 	procSetIoRateControlInformationJobObject = modkernel32.NewProc("SetIoRateControlInformationJobObject")
+	procNtOpenJobObject                      = modntdll.NewProc("NtOpenJobObject")
 	procSearchPathW                          = modkernel32.NewProc("SearchPathW")
 	procLogonUserW                           = modadvapi32.NewProc("LogonUserW")
 	procRtlMoveMemory                        = modkernel32.NewProc("RtlMoveMemory")
@@ -116,6 +117,12 @@ func SetIoRateControlInformationJobObject(jobHandle windows.Handle, ioRateContro
 			err = syscall.EINVAL
 		}
 	}
+	return
+}
+
+func NtOpenJobObject(jobHandle *windows.Handle, desiredAccess uint32, objAttributes *ObjectAttributes) (status uint32) {
+	r0, _, _ := syscall.Syscall(procNtOpenJobObject.Addr(), 3, uintptr(unsafe.Pointer(jobHandle)), uintptr(desiredAccess), uintptr(unsafe.Pointer(objAttributes)))
+	status = uint32(r0)
 	return
 }
 

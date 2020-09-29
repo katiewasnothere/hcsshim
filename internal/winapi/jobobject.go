@@ -26,7 +26,7 @@ const JOB_OBJECT_IO_RATE_CONTROL_ENABLE = 0x1
 
 // https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_cpu_rate_control_information
 const (
-	JOB_OBJECT_CPU_RATE_CONTROL_ENABLE = 1 << iota
+	JOB_OBJECT_CPU_RATE_CONTROL_ENABLE uint32 = 1 << iota
 	JOB_OBJECT_CPU_RATE_CONTROL_WEIGHT_BASED
 	JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP
 	JOB_OBJECT_CPU_RATE_CONTROL_NOTIFY
@@ -60,7 +60,7 @@ type JOBOBJECT_BASIC_LIMIT_INFORMATION struct {
 // https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_cpu_rate_control_information
 type JOBOBJECT_CPU_RATE_CONTROL_INFORMATION struct {
 	ControlFlags uint32
-	Rate         uint32
+	Value        uint32
 }
 
 // https://docs.microsoft.com/en-us/windows/win32/api/jobapi2/ns-jobapi2-jobobject_io_rate_control_information
@@ -118,3 +118,11 @@ type JOBOBJECT_ASSOCIATE_COMPLETION_PORT struct {
 // );
 //
 //sys SetIoRateControlInformationJobObject(jobHandle windows.Handle, ioRateControlInfo *JOBOBJECT_IO_RATE_CONTROL_INFORMATION) (ret uint32, err error) = kernel32.SetIoRateControlInformationJobObject
+
+// NTSTATUS
+// NtOpenJobObject (
+//     _Out_ PHANDLE JobHandle,
+//     _In_ ACCESS_MASK DesiredAccess,
+//     _In_ POBJECT_ATTRIBUTES ObjectAttributes
+// );
+//sys NtOpenJobObject(jobHandle *windows.Handle, desiredAccess uint32, objAttributes *ObjectAttributes) (status uint32) = ntdll.NtOpenJobObject

@@ -5,6 +5,8 @@ import (
 	"syscall"
 	"unicode/utf16"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 type UnicodeString struct {
@@ -38,6 +40,16 @@ func NewUnicodeString(s string) (*UnicodeString, error) {
 	}
 	copy((*[32768]uint16)(unsafe.Pointer(uni.Buffer))[:], ws)
 	return uni, nil
+}
+
+// InitializeObjectAttributes is a helper function to initialize an object attribute
+func InitializeObjectAttributes(oa *ObjectAttributes, name *UnicodeString, attributes uint32, rootDir windows.Handle, securityDesc *windows.SECURITY_DESCRIPTOR) {
+	oa.Length = unsafe.Sizeof(ObjectAttributes{})
+	oa.RootDirectory = uintptr(rootDir)
+	oa.Attributes = uintptr(attributes)
+	oa.ObjectName = uintptr(unsafe.Pointer(name))
+	// TODO katiewasnothere: fix this to be more memory safe
+	oa.SecurityDescriptor = uintptr(unsafe.Pointer(securityDesc))
 }
 
 // ConvertStringSetToSlice is a helper function used to convert the contents of
