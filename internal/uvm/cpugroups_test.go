@@ -8,30 +8,6 @@ import (
 )
 
 // Unit tests for cpugroup creation, modification, and deletion
-func DisabledTestCPUGroupCreateAndDelete(t *testing.T) {
-	lps := []uint32{0, 1}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	id, err := createNewCPUGroup(ctx, lps)
-	if err != nil {
-		t.Fatalf("failed to create cpugroup %s with: %v", id, err)
-	}
-
-	defer func() {
-		if err := deleteCPUGroup(ctx, id); err != nil {
-			t.Fatalf("failed to delete cpugroup %s with: %v", id, err)
-		}
-	}()
-
-	exists, err := cpuGroupExists(ctx, id)
-	if err != nil {
-		t.Fatalf("failed to determine if cpugroup exists with: %v", err)
-	}
-	if !exists {
-		t.Fatalf("expected to find cpugroup %s on machine but didn't", id)
-	}
-}
-
 func DisabledTestCPUGroupCreateWithIDAndDelete(t *testing.T) {
 	lps := []uint32{0, 1}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -63,7 +39,12 @@ func DisabledTestCPUGroupSetCap(t *testing.T) {
 	lps := []uint32{0, 1}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	id, err := createNewCPUGroup(ctx, lps)
+	idAsGUID, err := guid.NewV4()
+	if err != nil {
+		t.Fatalf("failed to create cpugroup guid with: %v", err)
+	}
+	id := idAsGUID.String()
+	err = createNewCPUGroupWithID(ctx, id, lps)
 	if err != nil {
 		t.Fatalf("failed to create cpugroup %s with: %v", id, err)
 	}
@@ -91,7 +72,12 @@ func DisabledTestCPUGroupSetPriority(t *testing.T) {
 	lps := []uint32{0, 1}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	id, err := createNewCPUGroup(ctx, lps)
+	idAsGUID, err := guid.NewV4()
+	if err != nil {
+		t.Fatalf("failed to create cpugroup guid with: %v", err)
+	}
+	id := idAsGUID.String()
+	err = createNewCPUGroupWithID(ctx, id, lps)
 	if err != nil {
 		t.Fatalf("failed to create cpugroup %s with: %v", id, err)
 	}

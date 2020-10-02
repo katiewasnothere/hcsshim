@@ -9,9 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Microsoft/hcsshim"
 	"github.com/Microsoft/hcsshim/internal/cow"
+	"github.com/Microsoft/hcsshim/internal/gcs"
 	"github.com/Microsoft/hcsshim/internal/hcsoci"
 	layerspkg "github.com/Microsoft/hcsshim/internal/layers"
 	"github.com/Microsoft/hcsshim/internal/resources"
@@ -476,23 +478,39 @@ func TestWCOWXenonShim(t *testing.T) {
 	stopContainer(t, xenonShim)
 }
 
-func generateWCOWOciTestSpec(t *testing.T, imageLayers []string, scratchPath, hostRWSharedDirectory, hostROSharedDirectory string) *specs.Spec {
+func generateWCOWOCITestSpecGeneric(t *testing.T, imageLayers []string, scratchPath string) *specs.Spec {
 	return &specs.Spec{
 		Windows: &specs.Windows{
 			LayerFolders: append(imageLayers, scratchPath),
 		},
-		Mounts: []specs.Mount{
-			{
-				Source:      hostROSharedDirectory,
-				Destination: `c:\mappedro`,
-				Options:     []string{"ro"},
-			},
-			{
-				Source:      hostRWSharedDirectory,
-				Destination: `c:\mappedrw`,
+		Process: &specs.Process{
+			Args: []string{
+				"cmd",
+				"/c",
+				"ping",
+				"-t",
+				"127.0.0.1",
+				">",
+				"nul",
 			},
 		},
 	}
+}
+
+func generateWCOWOCITestSpec(t *testing.T, imageLayers []string, scratchPath, hostRWSharedDirectory, hostROSharedDirectory string) *specs.Spec {
+	newSpec := generateWCOWOCITestSpecGeneric(t, imageLayers, scratchPath)
+	newSpec.Mounts = []specs.Mount{
+		{
+			Source:      hostROSharedDirectory,
+			Destination: `c:\mappedro`,
+			Options:     []string{"ro"},
+		},
+		{
+			Source:      hostRWSharedDirectory,
+			Destination: `c:\mappedrw`,
+		},
+	}
+	return newSpec
 }
 
 // Argon through HCSOCI interface (v1)
@@ -519,7 +537,7 @@ func TestWCOWArgonOciV1(t *testing.T) {
 	}()
 
 	var err error
-	spec := generateWCOWOciTestSpec(t, imageLayers, argonOci1ScratchDir, hostRWSharedDirectory, hostROSharedDirectory)
+	spec := generateWCOWOCITestSpec(t, imageLayers, argonOci1ScratchDir, hostRWSharedDirectory, hostROSharedDirectory)
 	argonOci1, argonOci1Resources, err = hcsoci.CreateContainer(
 		context.Background(),
 		&hcsoci.CreateOptions{
@@ -574,7 +592,7 @@ func TestWCOWXenonOciV1(t *testing.T) {
 	}()
 
 	var err error
-	spec := generateWCOWOciTestSpec(t, imageLayers, xenonOci1ScratchDir, hostRWSharedDirectory, hostROSharedDirectory)
+	spec := generateWCOWOCITestSpec(t, imageLayers, xenonOci1ScratchDir, hostRWSharedDirectory, hostROSharedDirectory)
 	spec.Windows.HyperV = &specs.WindowsHyperV{}
 	xenonOci1, xenonOci1Resources, err = hcsoci.CreateContainer(
 		context.Background(),
@@ -625,7 +643,7 @@ func TestWCOWArgonOciV2(t *testing.T) {
 	}()
 
 	var err error
-	spec := generateWCOWOciTestSpec(t, imageLayers, argonOci2ScratchDir, hostRWSharedDirectory, hostROSharedDirectory)
+	spec := generateWCOWOCITestSpec(t, imageLayers, argonOci2ScratchDir, hostRWSharedDirectory, hostROSharedDirectory)
 	argonOci2, argonOci2Resources, err = hcsoci.CreateContainer(
 		context.Background(),
 		&hcsoci.CreateOptions{
@@ -653,9 +671,7 @@ func TestWCOWArgonOciV2(t *testing.T) {
 // Xenon through HCSOCI interface (v2)
 func TestWCOWXenonOciV2(t *testing.T) {
 	testutilities.RequiresBuild(t, osversion.RS5)
-	imageLayers := testutilities.LayerFolders(t, imageName)
-	xenonOci2Mounted := false
-	xenonOci2UVMCreated := false
+	imageLayers := testutilities.LayerFolders(t, "mcr.microsoft.com/windows/nanoserver:2004")
 
 	xenonOci2ScratchDir := testutilities.CreateTempDir(t)
 	defer os.RemoveAll(xenonOci2ScratchDir)
@@ -675,15 +691,6 @@ func TestWCOWXenonOciV2(t *testing.T) {
 	var xenonOci2Resources *resources.Resources
 	var xenonOci2 cow.Container
 	var xenonOci2UVM *uvm.UtilityVM
-	defer func() {
-		if xenonOci2Mounted {
-			resources.ReleaseResources(context.Background(), xenonOci2Resources, xenonOci2UVM, true)
-		}
-		if xenonOci2UVMCreated {
-			xenonOci2UVM.Close()
-		}
-	}()
-
 	// Create the utility VM.
 	xenonOci2UVMId := "xenonOci2UVM"
 	xenonOci2UVMScratchDir := testutilities.CreateTempDir(t)
@@ -697,14 +704,14 @@ func TestWCOWXenonOciV2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed create UVM: %s", err)
 	}
-	xenonOci2UVMCreated = true
+	defer xenonOci2UVM.Close()
+
 	if err := xenonOci2UVM.Start(context.Background()); err != nil {
 		xenonOci2UVM.Close()
 		t.Fatalf("Failed start UVM: %s", err)
-
 	}
 
-	spec := generateWCOWOciTestSpec(t, imageLayers, xenonOci2ScratchDir, hostRWSharedDirectory, hostROSharedDirectory)
+	spec := generateWCOWOCITestSpec(t, imageLayers, xenonOci2ScratchDir, hostRWSharedDirectory, hostROSharedDirectory)
 	xenonOci2, xenonOci2Resources, err = hcsoci.CreateContainer(
 		context.Background(),
 		&hcsoci.CreateOptions{
@@ -716,19 +723,81 @@ func TestWCOWXenonOciV2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	xenonOci2Mounted = true
+	defer resources.ReleaseResources(context.Background(), xenonOci2Resources, xenonOci2UVM, true)
+
 	err = xenonOci2.Start(context.Background())
 	if err != nil {
 		t.Fatalf("Failed start: %s", err)
 	}
 	runHcsCommands(t, xenonOci2)
 	stopContainer(t, xenonOci2)
-	if err := resources.ReleaseResources(context.Background(), xenonOci2Resources, xenonOci2UVM, true); err != nil {
+}
+
+// Xenon through HCSOCI interface (v2) memory update
+func TestWCOWXenonOciV2MemoryUpdate(t *testing.T) {
+	testutilities.RequiresBuild(t, osversion.RS5)
+	imageLayers := testutilities.LayerFolders(t, "mcr.microsoft.com/windows/nanoserver:2004")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+	defer cancel()
+
+	xenonOci2ScratchDir := testutilities.CreateTempDir(t)
+	defer os.RemoveAll(xenonOci2ScratchDir)
+	if err := wclayer.CreateScratchLayer(ctx, xenonOci2ScratchDir, imageLayers); err != nil {
+		t.Fatalf("failed to create xenon scratch layer: %s", err)
+	}
+
+	uvmImagePath, err := uvmfolder.LocateUVMFolder(ctx, imageLayers)
+	if err != nil {
+		t.Fatalf("LocateUVMFolder failed %s", err)
+	}
+
+	var xenonOci2Resources *resources.Resources
+	var xenonOci2 cow.Container
+	var xenonOci2UVM *uvm.UtilityVM
+
+	// Create the utility VM.
+	xenonOci2UVMId := "xenonOci2UVM"
+	xenonOci2UVMScratchDir := testutilities.CreateTempDir(t)
+	if err := wcow.CreateUVMScratch(ctx, uvmImagePath, xenonOci2UVMScratchDir, xenonOci2UVMId); err != nil {
+		t.Fatalf("failed to create scratch: %s", err)
+	}
+
+	xenonOciOpts := uvm.NewDefaultOptionsWCOW(xenonOci2UVMId, "")
+	xenonOciOpts.MemorySizeInMB = 1024 * 3
+	xenonOciOpts.LayerFolders = append(imageLayers, xenonOci2UVMScratchDir)
+	xenonOci2UVM, err = uvm.CreateWCOW(ctx, xenonOciOpts)
+	if err != nil {
+		t.Fatalf("Failed create UVM: %s", err)
+	}
+	defer xenonOci2UVM.Close()
+	if err := xenonOci2UVM.Start(ctx); err != nil {
+		xenonOci2UVM.Close()
+		t.Fatalf("Failed start UVM: %s", err)
+
+	}
+
+	spec := generateWCOWOCITestSpecGeneric(t, imageLayers, xenonOci2ScratchDir)
+	spec.Annotations = make(map[string]string)
+	spec.Annotations["io.microsoft.virtualmachine.computetopology.memory.sizeinmb"] = "1024"
+	createOpts := &hcsoci.CreateOptions{
+		ID:            "xenonOci2",
+		HostingSystem: xenonOci2UVM,
+		SchemaVersion: schemaversion.SchemaV21(),
+		Spec:          spec,
+	}
+	xenonOci2, xenonOci2Resources, err = hcsoci.CreateContainer(ctx, createOpts)
+	if err != nil {
 		t.Fatal(err)
 	}
-	xenonOci2Mounted = false
+	defer resources.ReleaseResources(ctx, xenonOci2Resources, xenonOci2UVM, true)
 
-	// Terminate the UVM
-	xenonOci2UVM.Close()
-	xenonOci2UVMCreated = false
+	if err := xenonOci2.Start(ctx); err != nil {
+		t.Fatalf("Failed start: %s", err)
+	}
+
+	newMemorySize := uint64(1024 * 2)
+	if err := gcs.UpdateContainerMemory(ctx, xenonOci2, newMemorySize); err != nil {
+		t.Fatalf("Failed to update container memory size: %v", err)
+	}
 }

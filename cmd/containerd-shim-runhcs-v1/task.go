@@ -8,6 +8,7 @@ import (
 	"github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options"
 	"github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/stats"
 	"github.com/Microsoft/hcsshim/internal/shimdiag"
+	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/containerd/containerd/runtime/v2/task"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -92,7 +93,20 @@ type shimTask interface {
 	// If the host is hypervisor isolated and this task owns the host additional
 	// metrics on the UVM may be returned as well.
 	Stats(ctx context.Context) (*stats.Statistics, error)
-
-	// TODO katiewasnothere
+	// Update updates a task's container
 	Update(ctx context.Context, req *task.UpdateTaskRequest) error
+}
+
+// TODO katiewasnothere: include storage stuff
+func updatePodResources(ctx context.Context, vm *uvm.UtilityVM, data interface{}) error {
+	if resources, ok := data.(*specs.WindowsResources); ok {
+		if resources.Memory != nil && resources.Memory.Limit != nil {
+			if err := vm.UpdateMemory(ctx, *resources.Memory.Limit); err != nil {
+				return err
+			}
+		}
+	} else {
+		return errors.New("update resources for pods must be of type *WindowsResources")
+	}
+	return nil
 }

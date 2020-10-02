@@ -8,16 +8,14 @@ import (
 	"github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options"
 	"github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/stats"
 	"github.com/Microsoft/hcsshim/internal/cmd"
-	"github.com/Microsoft/hcsshim/internal/guestrequest"
 	"github.com/Microsoft/hcsshim/internal/log"
-	"github.com/Microsoft/hcsshim/internal/requesttype"
-	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 	"github.com/Microsoft/hcsshim/internal/shimdiag"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	eventstypes "github.com/containerd/containerd/api/events"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/runtime"
 	"github.com/containerd/containerd/runtime/v2/task"
+	"github.com/containerd/typeurl"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -240,7 +238,21 @@ func (wpst *wcowPodSandboxTask) DumpGuestStacks(ctx context.Context) string {
 }
 
 func (wpst *wcowPodSandboxTask) Update(ctx context.Context, req *task.UpdateTaskRequest) error {
-	// todo katiewasnothere: implement
+	data, err := typeurl.UnmarshalAny(req.Resources)
+	if err != nil {
+		return errors.Wrapf(err, "failed to unmarshal resources for container %s update request", req.ID)
+	}
+
+	if err := verifyUpdateResourcesType(data); err != nil {
+		return err
+	}
+
+	if wpst.host != nil {
+		if err := updatePodResources(ctx, wpst.host, data); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -248,25 +260,7 @@ func (wpst *wcowPodSandboxTask) Share(ctx context.Context, req *shimdiag.ShareRe
 	if wpst.host == nil {
 		return errTaskNotIsolated
 	}
-	options := wpst.host.DefaultVSMBOptions(req.ReadOnly)
-	_, err := wpst.host.AddVSMB(ctx, req.HostPath, options)
-	if err != nil {
-		return err
-	}
-	sharePath, err := wpst.host.GetVSMBUvmPath(ctx, req.HostPath, req.ReadOnly)
-	if err != nil {
-		return err
-	}
-	guestReq := guestrequest.GuestRequest{
-		ResourceType: guestrequest.ResourceTypeMappedDirectory,
-		RequestType:  requesttype.Add,
-		Settings: &hcsschema.MappedDirectory{
-			HostPath:      sharePath,
-			ContainerPath: req.UvmPath,
-			ReadOnly:      req.ReadOnly,
-		},
-	}
-	return wpst.host.GuestRequest(ctx, guestReq)
+	return wpst.host.Share(ctx, req.HostPath, req.UvmPath, req.ReadOnly)
 }
 
 func (wpst *wcowPodSandboxTask) Stats(ctx context.Context) (*stats.Statistics, error) {

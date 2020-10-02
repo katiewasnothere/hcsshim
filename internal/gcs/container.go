@@ -9,13 +9,16 @@ import (
 	"github.com/Microsoft/hcsshim/internal/cow"
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/oc"
+	"github.com/Microsoft/hcsshim/internal/requesttype"
 	"github.com/Microsoft/hcsshim/internal/schema1"
 	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
+	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
 )
 
 const (
 	hrComputeSystemDoesNotExist = 0xc037010e
+	bytesPerMB                  = 1024 * 1024
 )
 
 // Container implements the cow.Container interface for containers
@@ -226,4 +229,29 @@ func (c *Container) waitBackground() {
 	err := c.Wait()
 	log.G(ctx).Debug("container exited")
 	oc.SetSpanStatus(span, err)
+}
+
+// UpdateContainerMemory makes a modify request on the given cow container to modify the memory size
+// Internally, this will modify the container's job object memory limits
+func UpdateContainerMemory(ctx context.Context, c cow.Container, newMemorySizeInBytes uint64) error {
+	newMemorySizeInMB := newMemorySizeInBytes / bytesPerMB
+	actual := normalizeContainerMemorySize(ctx, newMemorySizeInMB)
+	req := &hcsschema.ModifySettingRequest{
+		ResourcePath: siloMemoryResourcePath,
+		RequestType:  requesttype.Update,
+		Settings:     actual,
+	}
+	return c.Modify(ctx, req)
+}
+
+// todo katiewasnothere: this should probably be a utility
+func normalizeContainerMemorySize(ctx context.Context, requested uint64) uint64 {
+	actual := (requested + 1) &^ 1 // align up to an even number
+	if requested != actual {
+		log.G(ctx).WithFields(logrus.Fields{
+			"requested": requested,
+			"assigned":  actual,
+		}).Warn("Changing user requested MemorySizeInMB to align to 2MB")
+	}
+	return actual
 }

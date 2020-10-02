@@ -27,6 +27,10 @@ var _HV_STATUS_INVALID_CPU_GROUP_STATE = errors.New("The hypervisor could not pe
 // ReleaseCPUGroup unsets the cpugroup from the VM and attemps to delete it
 func (uvm *UtilityVM) ReleaseCPUGroup(ctx context.Context) error {
 	groupID := uvm.cpuGroupID
+	if groupID == "" {
+		// not set, don't try to do anything
+		return nil
+	}
 	if err := uvm.unsetCPUGroup(ctx); err != nil {
 		return fmt.Errorf("failed to remove VM %s from cpugroup %s", uvm.ID(), groupID)
 	}
@@ -45,8 +49,8 @@ type CPUGroupOptions struct {
 	CreateRandomID    bool
 	ID                string
 	LogicalProcessors []uint32
-	Cap               uint32
-	Priority          uint32
+	Cap               *uint32
+	Priority          *uint32
 }
 
 // verifyCPUGroupOptions verifies that the CPUGroupOptions are a valid cpugroup configuration
@@ -67,41 +71,64 @@ func (uvm *UtilityVM) ConfigureVMCPUGroup(ctx context.Context, opts *CPUGroupOpt
 		return err
 	}
 	if opts.CreateRandomID {
-		createdID, err := createNewCPUGroup(ctx, opts.LogicalProcessors)
+		id, err := guid.NewV4()
 		if err != nil {
 			return err
 		}
-		opts.ID = createdID
-	} else {
-		exists, err := cpuGroupExists(ctx, opts.ID)
-		if err != nil {
-			return err
-		}
-
-		if !exists {
-			if err := createNewCPUGroupWithID(ctx, opts.ID, opts.LogicalProcessors); err != nil {
-				return err
-			}
-		}
+		opts.ID = id.String()
 	}
-
-	if err := uvm.setCPUGroup(ctx, opts.ID); err != nil {
+	exists, err := cpuGroupExists(ctx, opts.ID)
+	if err != nil {
 		return err
 	}
 
-	if opts.Cap != DefaultCPUGroupCap {
-		if err := setCPUGroupCap(ctx, uvm.cpuGroupID, opts.Cap); err != nil {
+	if !exists {
+		if err := createNewCPUGroupWithID(ctx, opts.ID, opts.LogicalProcessors); err != nil {
 			return err
 		}
 	}
 
-	if opts.Priority != DefaultCPUGroupPriority {
-		if err := setCPUGroupSchedulingPriority(ctx, uvm.cpuGroupID, opts.Priority); err != nil {
+	if err := updateCPUGroupProperties(ctx, opts.ID, opts.Cap, opts.Priority); err != nil {
+		return err
+	}
+	return uvm.setCPUGroup(ctx, opts.ID)
+}
+
+func updateCPUGroupProperties(ctx context.Context, id string, cap, priority *uint32) error {
+	config, err := getCPUGroupConfig(ctx, id)
+	if err != nil {
+		return err
+	}
+	previousCap, err := getCPUGroupCapFromConfig(ctx, id, config)
+	if err != nil {
+		return err
+	}
+	/*previousPri, err := getCPUGroupPriorityFromConfig(ctx, id, config)
+	if err != nil {
+		return err
+	}*/
+	if cap != nil && *cap != previousCap {
+		if err := setCPUGroupCap(ctx, id, *cap); err != nil {
 			return err
 		}
 	}
-
+	/*if priority != nil && *priority != previousPri {
+		if err := setCPUGroupSchedulingPriority(ctx, id, *priority); err != nil {
+			return err
+		}
+	}*/
 	return nil
+}
+
+// ModifyVMCPUGroup is used to modify the VM's cpugroup during runtime
+func (uvm *UtilityVM) ModifyVMCPUGroup(ctx context.Context, opts *CPUGroupOptions) error {
+	if opts.CreateRandomID || opts.ID != "" {
+		// modify request changes the cpugroup that the VM should be in, so release the previous group
+		if err := uvm.ReleaseCPUGroup(ctx); err != nil {
+			return err
+		}
+	}
+	return uvm.ConfigureVMCPUGroup(ctx, opts)
 }
 
 // setCPUGroup sets the VM's cpugroup
@@ -121,6 +148,9 @@ func (uvm *UtilityVM) setCPUGroup(ctx context.Context, id string) error {
 
 // unsetCPUGroup sets the VM's cpugroup to the null group ID
 // set groupID to 00000000-0000-0000-0000-000000000000 to remove the VM from a cpugroup
+//
+// Since a VM must be moved to the null group before potentially being added to a different
+// cpugroup, that means there may be a segment of time that the VM's cpu usage runs unrestricted.
 func (uvm *UtilityVM) unsetCPUGroup(ctx context.Context) error {
 	log.G(ctx).WithField("previous group id", uvm.cpuGroupID).Debug("unsetting the VM's CPU Group")
 	return uvm.setCPUGroup(ctx, CPUGroupNullID)
@@ -147,19 +177,6 @@ func modifyCPUGroupRequest(ctx context.Context, operation hcsschema.CPUGroupOper
 	}
 
 	return hcs.ModifyServiceSettings(ctx, req)
-}
-
-// createNewCPUGroup creates a new cpugroup on the host with a random id
-func createNewCPUGroup(ctx context.Context, logicalProcessors []uint32) (string, error) {
-	id, err := guid.NewV4()
-	if err != nil {
-		return "", err
-	}
-	err = createNewCPUGroupWithID(ctx, id.String(), logicalProcessors)
-	if err != nil {
-		return "", err
-	}
-	return id.String(), nil
 }
 
 // createNewCPUGroupWithID creates a new cpugroup on the host with a prespecified id
@@ -263,6 +280,10 @@ func getCPUGroupCap(ctx context.Context, id string) (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
+	return getCPUGroupCapFromConfig(ctx, id, config)
+}
+
+func getCPUGroupCapFromConfig(ctx context.Context, id string, config *hcsschema.CpuGroupConfig) (uint32, error) {
 	props := config.GroupProperties
 	for _, p := range props {
 		if p.PropertyCode == hcsschema.CpuCapPropertyCode {
@@ -272,13 +293,7 @@ func getCPUGroupCap(ctx context.Context, id string) (uint32, error) {
 	return 0, fmt.Errorf("failed to get cpu cap property information for cpugroup %s", id)
 }
 
-// getCPUGroupPriority is a helper function to return the group scheduling priority of
-// cpugroup with `id`
-func getCPUGroupPriority(ctx context.Context, id string) (uint32, error) {
-	config, err := getCPUGroupConfig(ctx, id)
-	if err != nil {
-		return 0, err
-	}
+func getCPUGroupPriorityFromConfig(ctx context.Context, id string, config *hcsschema.CpuGroupConfig) (uint32, error) {
 	props := config.GroupProperties
 	for _, p := range props {
 		if p.PropertyCode == hcsschema.SchedulingPriorityPropertyCode {
@@ -286,4 +301,14 @@ func getCPUGroupPriority(ctx context.Context, id string) (uint32, error) {
 		}
 	}
 	return 0, fmt.Errorf("failed to get cpu priority property information for cpugroup %s", id)
+}
+
+// getCPUGroupPriority is a helper function to return the group scheduling priority of
+// cpugroup with `id`
+func getCPUGroupPriority(ctx context.Context, id string) (uint32, error) {
+	config, err := getCPUGroupConfig(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	return getCPUGroupPriorityFromConfig(ctx, id, config)
 }

@@ -380,7 +380,6 @@ func (s *service) closeIOInternal(ctx context.Context, req *task.CloseIORequest)
 }
 
 func (s *service) updateInternal(ctx context.Context, req *task.UpdateTaskRequest) (*google_protobuf1.Empty, error) {
-	// TODO katiewasnothere: add support here
 	if req.Resources == nil {
 		return nil, errors.Wrapf(errdefs.ErrInvalidArgument, "resources cannot be empty, updating container %s resources failed", req.ID)
 	}
@@ -391,7 +390,7 @@ func (s *service) updateInternal(ctx context.Context, req *task.UpdateTaskReques
 	if err := t.Update(ctx, req); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return empty, nil
 }
 
 func (s *service) waitInternal(ctx context.Context, req *task.WaitRequest) (*task.WaitResponse, error) {

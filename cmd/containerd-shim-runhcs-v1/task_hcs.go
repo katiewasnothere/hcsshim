@@ -612,33 +612,43 @@ func (ht *hcsTask) DumpGuestStacks(ctx context.Context) string {
 }
 
 func (ht *hcsTask) Update(ctx context.Context, req *task.UpdateTaskRequest) error {
-	// todo katiewasnothere: implement
+	data, err := typeurl.UnmarshalAny(req.Resources)
+	if err != nil {
+		return errors.Wrapf(err, "failed to unmarshal resources for container %s update request", req.ID)
+	}
+
+	if err := verifyUpdateResourcesType(data); err != nil {
+		return err
+	}
+
+	if ht.ownsHost && ht.host != nil {
+		if err := updatePodResources(ctx, ht.host, data); err != nil {
+			return err
+		}
+	} else if ht.host != nil {
+		if err := ht.updateTaskContainerResources(ctx, data); err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("container %s is not isolated", ht.id)
+	}
+
 	return nil
+}
+
+func (ht *hcsTask) updateTaskContainerResources(ctx context.Context, data interface{}) error {
+	if ht.isWCOW {
+		return updateWCOWResources(ctx, ht, ht.c, data)
+	}
+
+	return updateLCOWResources(ctx, ht.host, ht.id, data)
 }
 
 func (ht *hcsTask) Share(ctx context.Context, req *shimdiag.ShareRequest) error {
 	if ht.host == nil {
 		return errTaskNotIsolated
 	}
-	// For hyper-v isolated WCOW the task used isn't the standard hcsTask so we
-	// only have to deal with the LCOW case here.
-	st, err := os.Stat(req.HostPath)
-	if err != nil {
-		return fmt.Errorf("could not open '%s' path on host: %s", req.HostPath, err)
-	}
-	var (
-		hostPath       string = req.HostPath
-		restrictAccess bool
-		fileName       string
-		allowedNames   []string
-	)
-	if !st.IsDir() {
-		hostPath, fileName = filepath.Split(hostPath)
-		allowedNames = append(allowedNames, fileName)
-		restrictAccess = true
-	}
-	_, err = ht.host.AddPlan9(ctx, hostPath, req.UvmPath, req.ReadOnly, restrictAccess, allowedNames)
-	return err
+	return ht.host.Share(ctx, req.HostPath, req.UvmPath, req.ReadOnly)
 }
 
 func hcsPropertiesToWindowsStats(props *hcsschema.Properties) *stats.Statistics_Windows {

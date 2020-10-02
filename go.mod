@@ -12,16 +12,21 @@ require (
 	github.com/containerd/go-runc v0.0.0-20180907222934-5a6d9f37cfa3
 	github.com/containerd/ttrpc v0.0.0-20190828154514-0e0f228740de
 	github.com/containerd/typeurl v0.0.0-20180627222232-a93fcdb778cd
+	github.com/docker/distribution v2.7.1+incompatible // indirect
+	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
+	github.com/gogo/googleapis v1.4.0 // indirect
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/opencontainers/go-digest v0.0.0-20180430190053-c9281466c8b2 // indirect
+	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v0.0.0-20190115041553-12f6a991201f // indirect
 	github.com/opencontainers/runtime-spec v1.0.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/procfs v0.0.0-20180125133057-cb4147076ac7 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.4.0 // indirect
+	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/urfave/cli v1.22.2
 	go.opencensus.io v0.22.0
 	golang.org/x/net v0.0.0-20191004110552-13f9640d40b9 // indirect

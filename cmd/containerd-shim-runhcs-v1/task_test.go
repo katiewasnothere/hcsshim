@@ -10,6 +10,7 @@ import (
 	v1 "github.com/containerd/cgroups/stats/v1"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/runtime/v2/task"
+	"github.com/containerd/typeurl"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 )
@@ -92,7 +93,16 @@ func (tst *testShimTask) DumpGuestStacks(ctx context.Context) string {
 }
 
 func (tst *testShimTask) Update(ctx context.Context, req *task.UpdateTaskRequest) error {
-	return nil
+	data, err := typeurl.UnmarshalAny(req.Resources)
+	if err != nil {
+		return errors.Wrapf(err, "failed to unmarshal resources for container %s update request", req.ID)
+	}
+	if _, ok := data.(*specs.WindowsResources); ok {
+		return nil
+	} else if _, ok := data.(*specs.LinuxResources); ok {
+		return nil
+	}
+	return errors.New("update resources must be of type *WindowsResources or *LinuxResources")
 }
 
 func (tst *testShimTask) Share(ctx context.Context, req *shimdiag.ShareRequest) error {
