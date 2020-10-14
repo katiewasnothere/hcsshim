@@ -11,6 +11,8 @@ import (
 	testutilities "github.com/Microsoft/hcsshim/test/functional/utilities"
 )
 
+//TODO katiewasnothere: this was updated in another PR
+
 func TestUVMMemoryUpdateLCOW(t *testing.T) {
 	testutilities.RequiresBuild(t, osversion.RS5)
 

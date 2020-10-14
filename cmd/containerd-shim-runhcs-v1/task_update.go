@@ -45,30 +45,27 @@ func getJobObjectUtilHostPath() string {
 	return filepath.Join(filepath.Dir(os.Args[0]), jobObjUtilExeName)
 }
 
-func updateWCOWContainerCPU(ctx context.Context, task shimTask, cpuResources *specs.WindowsCPUResources) error {
+func updateWCOWContainerCPU(ctx context.Context, task shimTask, isIsolated bool, cpuResources *specs.WindowsCPUResources) error {
 	// make sure our utility tool is present in the host
+	hostPath := getJobObjectUtilHostPath()
+	commandPath := jobObjUtilUVMPath
+
 	shareReq := &shimdiag.ShareRequest{
-		HostPath: getJobObjectUtilHostPath(),
-		UvmPath:  jobObjUtilUVMPath,
+		HostPath: hostPath,
+		UvmPath:  commandPath,
 		ReadOnly: true,
 	}
-	if err := task.Share(ctx, shareReq); err != nil {
+	err := task.Share(ctx, shareReq)
+	if err == errTaskNotIsolated {
+		// process isolated task, just use host path to tool
+		commandPath = hostPath
+	} else if err != nil {
 		return err
 	}
 
-	// TODO katiewasnothere: fix this? or let it fail?
-	args := createJobObjectToolSetCommand(jobObjUtilUVMPath, task.ID())
+	args := createJobObjectToolSetCommand(commandPath, task.ID())
 	if cpuResources.Count != nil && (cpuResources.Shares == nil && cpuResources.Maximum == nil) {
 		procCount := *cpuResources.Count
-		/*hostCount := ht.host.ProcessorCount()
-		if procCount > uint64(hostCount) {
-			log.G(ctx).WithFields(logrus.Fields{
-				logfields.UVMID: ht.host.ID(),
-				"requested":     procCount,
-				"assigned":      hostCount,
-			}).Warn("Changing user requested CPUCount to current number of processors")
-			procCount = uint64(hostCount)
-		}*/
 		args = append(args, "-processorCount", strconv.Itoa(int(procCount)))
 	} else if cpuResources.Shares != nil && (cpuResources.Count == nil && cpuResources.Maximum == nil) {
 		args = append(args, "-processorWeight", strconv.Itoa(int(*cpuResources.Shares)))
@@ -88,7 +85,7 @@ func updateWCOWContainerCPU(ctx context.Context, task shimTask, cpuResources *sp
 	return nil
 }
 
-func updateWCOWResources(ctx context.Context, task shimTask, c cow.Container, data interface{}) error {
+func updateWCOWResources(ctx context.Context, task shimTask, isIsolated bool, c cow.Container, data interface{}) error {
 	resources, ok := data.(*specs.WindowsResources)
 	if !ok {
 		return errors.New("must have resources be type *WindowsResources when updating a wcow container")
@@ -99,7 +96,7 @@ func updateWCOWResources(ctx context.Context, task shimTask, c cow.Container, da
 		}
 	}
 	if resources.CPU != nil {
-		if err := updateWCOWContainerCPU(ctx, task, resources.CPU); err != nil {
+		if err := updateWCOWContainerCPU(ctx, task, isIsolated, resources.CPU); err != nil {
 			return err
 		}
 	}

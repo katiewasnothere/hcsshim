@@ -5,13 +5,22 @@ import (
 	"fmt"
 
 	"github.com/Microsoft/hcsshim/internal/uvm"
+	"github.com/Microsoft/hcsshim/osversion"
 )
 
 // HandleCPUGroupSetup will parse the cpugroup annotations and setup the cpugroup for `vm`
 func HandleCPUGroupSetup(ctx context.Context, vm *uvm.UtilityVM, annotations map[string]string) error {
+	// TODO katiewasnothere: this may not be entirely accurate
+	if osversion.Get().Build < 20196 {
+		return nil
+	}
 	cpuGroupOpts, err := AnnotationsToCPUGroupOptions(ctx, annotations)
 	if err != nil {
 		return err
+	}
+	if cpuGroupOpts.ID == uvm.CPUGroupNullID && cpuGroupOpts.CreateRandomID == false {
+		// user did not set any cpugroup requests, skip setting anything up
+		return nil
 	}
 	if err := vm.ConfigureVMCPUGroup(ctx, cpuGroupOpts); err != nil {
 		return err

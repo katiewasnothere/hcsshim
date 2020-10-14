@@ -21,6 +21,7 @@ import (
 	eventruntime "github.com/containerd/containerd/runtime"
 	"github.com/containerd/typeurl"
 	"github.com/gogo/protobuf/types"
+	"github.com/katiewasnothere/cri/criextension"
 	"google.golang.org/grpc"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
@@ -62,6 +63,9 @@ var (
 	imageWindowsServercore17763 = getWindowsServerCoreImage(osversion.RS5)
 	imageWindowsServercore18362 = getWindowsServerCoreImage(osversion.V19H1)
 	imageWindowsServercore19041 = getWindowsServerCoreImage(osversion.V20H1)
+
+	// TODO katiewasnothere: take this out
+	imageWindowsNanoserverCustom = "docker.io/library/nanoserver:10.0.20228.1000"
 )
 
 // Flags
@@ -124,7 +128,9 @@ func getWindowsNanoserverImage(build uint16) string {
 	case osversion.V20H1:
 		return "mcr.microsoft.com/windows/nanoserver:2004"
 	default:
-		panic("unsupported build")
+		return "mcr.microsoft.com/windows/nanoserver:2004"
+
+		// panic("unsupported build") // TODO katiewasnothere
 	}
 }
 
@@ -137,7 +143,9 @@ func getWindowsServerCoreImage(build uint16) string {
 	case osversion.V20H1:
 		return "mcr.microsoft.com/windows/servercore:2004"
 	default:
-		panic("unsupported build")
+		return "mcr.microsoft.com/windows/servercore:2004"
+
+		// panic("unsupported build") // TODO katiewasnothere
 	}
 }
 
@@ -156,6 +164,16 @@ func newTestRuntimeClient(t *testing.T) runtime.RuntimeServiceClient {
 		t.Fatalf("failed to dial runtime client: %v", err)
 	}
 	return runtime.NewRuntimeServiceClient(conn)
+}
+
+func newTestCRIExtensionClient(t *testing.T) criextension.CRIExtensionRuntimeServiceClient {
+	ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
+	defer cancel()
+	conn, err := createGRPCConn(ctx)
+	if err != nil {
+		t.Fatalf("failed to dial runtime client: %v", err)
+	}
+	return criextension.NewCRIExtensionRuntimeServiceClient(conn)
 }
 
 func newTestEventService(t *testing.T) containerd.EventService {

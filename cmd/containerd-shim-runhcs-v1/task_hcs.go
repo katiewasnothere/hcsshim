@@ -592,6 +592,7 @@ func (ht *hcsTask) closeHost(ctx context.Context) {
 	})
 }
 
+// TODO katiewasnothere: do we really want this? does this work?
 func (ht *hcsTask) ExecInHost(ctx context.Context, req *shimdiag.ExecProcessRequest) (int, error) {
 	if ht.host == nil {
 		return cmd.ExecInShimHost(ctx, req)
@@ -625,12 +626,10 @@ func (ht *hcsTask) Update(ctx context.Context, req *task.UpdateTaskRequest) erro
 		if err := updatePodResources(ctx, ht.host, data); err != nil {
 			return err
 		}
-	} else if ht.host != nil {
+	} else {
 		if err := ht.updateTaskContainerResources(ctx, data); err != nil {
 			return err
 		}
-	} else {
-		return fmt.Errorf("container %s is not isolated", ht.id)
 	}
 
 	return nil
@@ -638,7 +637,8 @@ func (ht *hcsTask) Update(ctx context.Context, req *task.UpdateTaskRequest) erro
 
 func (ht *hcsTask) updateTaskContainerResources(ctx context.Context, data interface{}) error {
 	if ht.isWCOW {
-		return updateWCOWResources(ctx, ht, ht.c, data)
+		isIsolated := ht.host != nil
+		return updateWCOWResources(ctx, ht, isIsolated, ht.c, data)
 	}
 
 	return updateLCOWResources(ctx, ht.host, ht.id, data)

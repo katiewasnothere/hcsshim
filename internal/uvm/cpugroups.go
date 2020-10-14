@@ -66,6 +66,8 @@ func verifyCPUGroupOptions(opts *CPUGroupOptions) error {
 
 // ConfigureVMCPUGroup parses the CPUGroupOptions `opts` and setups up the cpugroup for the VM
 // with the requested settings.
+//
+// If CreateRandomID is set, ignore any potential group ID that was also set on the opts
 func (uvm *UtilityVM) ConfigureVMCPUGroup(ctx context.Context, opts *CPUGroupOptions) error {
 	if err := verifyCPUGroupOptions(opts); err != nil {
 		return err
@@ -103,20 +105,20 @@ func updateCPUGroupProperties(ctx context.Context, id string, cap, priority *uin
 	if err != nil {
 		return err
 	}
-	/*previousPri, err := getCPUGroupPriorityFromConfig(ctx, id, config)
+	previousPri, err := getCPUGroupPriorityFromConfig(ctx, id, config)
 	if err != nil {
 		return err
-	}*/
+	}
 	if cap != nil && *cap != previousCap {
 		if err := setCPUGroupCap(ctx, id, *cap); err != nil {
 			return err
 		}
 	}
-	/*if priority != nil && *priority != previousPri {
+	if priority != nil && *priority != previousPri {
 		if err := setCPUGroupSchedulingPriority(ctx, id, *priority); err != nil {
 			return err
 		}
-	}*/
+	}
 	return nil
 }
 

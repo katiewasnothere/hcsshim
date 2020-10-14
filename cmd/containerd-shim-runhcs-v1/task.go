@@ -105,8 +105,14 @@ func updatePodResources(ctx context.Context, vm *uvm.UtilityVM, data interface{}
 				return err
 			}
 		}
+	} else if resources, ok := data.(*specs.LinuxResources); ok {
+		if resources.Memory != nil && resources.Memory.Limit != nil {
+			if err := vm.UpdateMemory(ctx, uint64(*resources.Memory.Limit)); err != nil {
+				return err
+			}
+		}
 	} else {
-		return errors.New("update resources for pods must be of type *WindowsResources")
+		return errors.New("update resources for pods must be of type *WindowsResources or *LinuxResources")
 	}
 	return nil
 }
