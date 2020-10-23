@@ -2,8 +2,9 @@ package oci
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 
+	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/Microsoft/hcsshim/osversion"
 )
@@ -14,14 +15,12 @@ func HandleCPUGroupSetup(ctx context.Context, vm *uvm.UtilityVM, annotations map
 	if osversion.Get().Build < 20196 {
 		return nil
 	}
-	cpuGroupOpts, err := AnnotationsToCPUGroupOptions(ctx, annotations)
-	if err != nil {
-		return err
-	}
-	if cpuGroupOpts.ID == uvm.CPUGroupNullID && cpuGroupOpts.CreateRandomID == false {
+	cpuGroupOpts := AnnotationsToCPUGroupOptions(ctx, annotations)
+	if cpuGroupOpts.ID == "" && cpuGroupOpts.CreateRandomID == false {
 		// user did not set any cpugroup requests, skip setting anything up
 		return nil
 	}
+	log.G(ctx).WithField("opts", cpuGroupOpts).Info("Parsed annotations for cpugroup options")
 	if err := vm.ConfigureVMCPUGroup(ctx, cpuGroupOpts); err != nil {
 		return err
 	}
@@ -29,23 +28,30 @@ func HandleCPUGroupSetup(ctx context.Context, vm *uvm.UtilityVM, annotations map
 }
 
 // AnnotationsToCPUGroupOptions parses the related cpugroup annotations and creates the CPUGroupOptions from the values
-func AnnotationsToCPUGroupOptions(ctx context.Context, annotations map[string]string) (*uvm.CPUGroupOptions, error) {
-	processorTopology, err := uvm.HostProcessorInfo(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get host processor information: %s", err)
-	}
-	lpIndices := []uint32{}
-	for _, l := range processorTopology.LogicalProcessors {
-		lpIndices = append(lpIndices, l.LpIndex)
-	}
-	cap := parseAnnotationsUint32(ctx, annotations, annotationCPUGroupCap, uvm.DefaultCPUGroupCap)
-	pri := parseAnnotationsUint32(ctx, annotations, annotationCPUGroupPriority, uvm.DefaultCPUGroupPriority)
+func AnnotationsToCPUGroupOptions(ctx context.Context, annotations map[string]string) *uvm.CPUGroupOptions {
+	randomID := parseAnnotationsBool(ctx, annotations, annotationCPUGroupCreateRandomID, false)
+	id := parseAnnotationsString(annotations, annotationCPUGroupID, "")
+	lpIndices := parseCommaSeperatedUint32(annotations, annotationCPUGroupLPs, nil)
+
 	opts := &uvm.CPUGroupOptions{
-		CreateRandomID:    parseAnnotationsBool(ctx, annotations, annotationCPUGroupCreateRandomID, false),
-		ID:                parseAnnotationsString(annotations, annotationCPUGroupID, uvm.CPUGroupNullID),
-		LogicalProcessors: parseCommaSeperatedUint32(annotations, annotationCPUGroupLPs, lpIndices),
-		Cap:               &cap,
-		Priority:          &pri,
+		CreateRandomID:    randomID,
+		ID:                id,
+		LogicalProcessors: lpIndices,
 	}
-	return opts, nil
+
+	if cap, ok := annotations[annotationCPUGroupCap]; ok {
+		countu, err := strconv.ParseUint(cap, 10, 32)
+		if err == nil {
+			v := uint32(countu)
+			opts.Cap = &v
+		}
+	}
+	if pri, ok := annotations[annotationCPUGroupPriority]; ok {
+		countu, err := strconv.ParseUint(pri, 10, 32)
+		if err == nil {
+			v := uint32(countu)
+			opts.Priority = &v
+		}
+	}
+	return opts
 }

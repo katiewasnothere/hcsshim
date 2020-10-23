@@ -19,9 +19,9 @@ import (
 	eventtypes "github.com/containerd/containerd/api/events"
 	eventsapi "github.com/containerd/containerd/api/services/events/v1"
 	eventruntime "github.com/containerd/containerd/runtime"
+	"github.com/containerd/cri/criextension"
 	"github.com/containerd/typeurl"
 	"github.com/gogo/protobuf/types"
-	"github.com/katiewasnothere/cri/criextension"
 	"google.golang.org/grpc"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )

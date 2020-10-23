@@ -7,6 +7,8 @@ import (
 
 	"github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options"
 	"github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/stats"
+	"github.com/Microsoft/hcsshim/internal/log"
+	"github.com/Microsoft/hcsshim/internal/oci"
 	"github.com/Microsoft/hcsshim/internal/shimdiag"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/containerd/containerd/runtime/v2/task"
@@ -98,7 +100,7 @@ type shimTask interface {
 }
 
 // TODO katiewasnothere: include storage stuff
-func updatePodResources(ctx context.Context, vm *uvm.UtilityVM, data interface{}) error {
+func updatePodResources(ctx context.Context, vm *uvm.UtilityVM, data interface{}, annotations map[string]string) error {
 	if resources, ok := data.(*specs.WindowsResources); ok {
 		if resources.Memory != nil && resources.Memory.Limit != nil {
 			if err := vm.UpdateMemory(ctx, *resources.Memory.Limit); err != nil {
@@ -111,8 +113,12 @@ func updatePodResources(ctx context.Context, vm *uvm.UtilityVM, data interface{}
 				return err
 			}
 		}
-	} else {
-		return errors.New("update resources for pods must be of type *WindowsResources or *LinuxResources")
 	}
+
+	log.G(ctx).WithField("annotations", annotations).Info("updating pod resources")
+	if err := oci.HandleCPUGroupSetup(ctx, vm, annotations); err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -238,17 +238,17 @@ func (wpst *wcowPodSandboxTask) DumpGuestStacks(ctx context.Context) string {
 }
 
 func (wpst *wcowPodSandboxTask) Update(ctx context.Context, req *task.UpdateTaskRequest) error {
-	data, err := typeurl.UnmarshalAny(req.Resources)
+	resources, err := typeurl.UnmarshalAny(req.Resources)
 	if err != nil {
 		return errors.Wrapf(err, "failed to unmarshal resources for container %s update request", req.ID)
 	}
 
-	if err := verifyUpdateResourcesType(data); err != nil {
+	if err := verifyUpdateResourcesType(resources); err != nil {
 		return err
 	}
 
 	if wpst.host != nil {
-		if err := updatePodResources(ctx, wpst.host, data); err != nil {
+		if err := updatePodResources(ctx, wpst.host, resources, req.Annotations); err != nil {
 			return err
 		}
 	}

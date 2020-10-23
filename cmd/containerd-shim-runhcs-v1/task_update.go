@@ -85,7 +85,7 @@ func updateWCOWContainerCPU(ctx context.Context, task shimTask, isIsolated bool,
 	return nil
 }
 
-func updateWCOWResources(ctx context.Context, task shimTask, isIsolated bool, c cow.Container, data interface{}) error {
+func updateWCOWResources(ctx context.Context, task shimTask, isIsolated bool, c cow.Container, data interface{}, annotations map[string]string) error {
 	resources, ok := data.(*specs.WindowsResources)
 	if !ok {
 		return errors.New("must have resources be type *WindowsResources when updating a wcow container")
@@ -103,7 +103,7 @@ func updateWCOWResources(ctx context.Context, task shimTask, isIsolated bool, c 
 	return nil
 }
 
-func updateLCOWResources(ctx context.Context, vm *uvm.UtilityVM, id string, data interface{}) error {
+func updateLCOWResources(ctx context.Context, vm *uvm.UtilityVM, id string, data interface{}, annotations map[string]string) error {
 	resources, ok := data.(*specs.LinuxResources)
 	if !ok {
 		if err := vm.UpdateContainer(ctx, id, resources); err != nil {

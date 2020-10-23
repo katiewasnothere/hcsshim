@@ -58,7 +58,7 @@ func verifyCPUGroupOptions(opts *CPUGroupOptions) error {
 	if opts.CreateRandomID && opts.ID != CPUGroupNullID {
 		return fmt.Errorf("cannot use a specific cpugroup ID when the `CreateRandomID` option is set")
 	}
-	if len(opts.LogicalProcessors) == 0 {
+	if len(opts.LogicalProcessors) == 0 || opts.LogicalProcessors == nil {
 		return fmt.Errorf("must specify the logical processors to use when creating a cpugroup")
 	}
 	return nil
@@ -78,6 +78,7 @@ func (uvm *UtilityVM) ConfigureVMCPUGroup(ctx context.Context, opts *CPUGroupOpt
 			return err
 		}
 		opts.ID = id.String()
+		log.G(ctx).WithField("id", id.String()).Info("Created random id")
 	}
 	exists, err := cpuGroupExists(ctx, opts.ID)
 	if err != nil {
@@ -85,6 +86,7 @@ func (uvm *UtilityVM) ConfigureVMCPUGroup(ctx context.Context, opts *CPUGroupOpt
 	}
 
 	if !exists {
+		log.G(ctx).WithField("lps", opts.LogicalProcessors).Info("the cpugroup does not exist")
 		if err := createNewCPUGroupWithID(ctx, opts.ID, opts.LogicalProcessors); err != nil {
 			return err
 		}
@@ -110,11 +112,14 @@ func updateCPUGroupProperties(ctx context.Context, id string, cap, priority *uin
 		return err
 	}
 	if cap != nil && *cap != previousCap {
+		log.G(ctx).WithField("cap", cap).Info("Updating cap of cpugroup")
 		if err := setCPUGroupCap(ctx, id, *cap); err != nil {
 			return err
 		}
 	}
 	if priority != nil && *priority != previousPri {
+		log.G(ctx).WithField("pri", priority).Info("Updating priority of cpugroup")
+
 		if err := setCPUGroupSchedulingPriority(ctx, id, *priority); err != nil {
 			return err
 		}

@@ -7,6 +7,7 @@ require (
 	github.com/Microsoft/hcsshim v0.8.7
 	github.com/blang/semver v3.1.0+incompatible // indirect
 	github.com/containerd/containerd v1.3.2
+	github.com/containerd/cri/criextension v0.0.0-00010101000000-000000000000
 	github.com/containerd/go-runc v0.0.0-20180907222934-5a6d9f37cfa3
 	github.com/containerd/ttrpc v0.0.0-20190828154514-0e0f228740de
 	github.com/containerd/typeurl v0.0.0-20180627222232-a93fcdb778cd
@@ -16,7 +17,6 @@ require (
 	github.com/hashicorp/errwrap v0.0.0-20141028054710-7554cd9344ce // indirect
 	github.com/hashicorp/go-multierror v0.0.0-20161216184304-ed905158d874 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
-	github.com/katiewasnothere/cri/criextension v0.0.0-20201010012117-8961d1516a24
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runtime-spec v1.0.2
 	github.com/opencontainers/runtime-tools v0.0.0-20181011054405-1d69bd0f9c39
@@ -33,3 +33,5 @@ require (
 )
 
 replace github.com/Microsoft/hcsshim => ../
+
+replace github.com/containerd/cri/criextension => github.com/katiewasnothere/cri/criextension v0.0.0-20201023181724-bfcad96bd1e5

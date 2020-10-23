@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	runhcsopts "github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options"
+	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/oci"
 	"github.com/Microsoft/hcsshim/internal/shimdiag"
 	containerd_v1_types "github.com/containerd/containerd/api/types/task"
@@ -387,6 +388,7 @@ func (s *service) updateInternal(ctx context.Context, req *task.UpdateTaskReques
 	if err != nil {
 		return nil, err
 	}
+	log.G(ctx).WithField("req", req).Info("passing along the request to update task")
 	if err := t.Update(ctx, req); err != nil {
 		return nil, err
 	}

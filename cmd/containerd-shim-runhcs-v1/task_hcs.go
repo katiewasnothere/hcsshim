@@ -613,21 +613,21 @@ func (ht *hcsTask) DumpGuestStacks(ctx context.Context) string {
 }
 
 func (ht *hcsTask) Update(ctx context.Context, req *task.UpdateTaskRequest) error {
-	data, err := typeurl.UnmarshalAny(req.Resources)
+	resources, err := typeurl.UnmarshalAny(req.Resources)
 	if err != nil {
 		return errors.Wrapf(err, "failed to unmarshal resources for container %s update request", req.ID)
 	}
 
-	if err := verifyUpdateResourcesType(data); err != nil {
+	if err := verifyUpdateResourcesType(resources); err != nil {
 		return err
 	}
 
 	if ht.ownsHost && ht.host != nil {
-		if err := updatePodResources(ctx, ht.host, data); err != nil {
+		if err := updatePodResources(ctx, ht.host, resources, req.Annotations); err != nil {
 			return err
 		}
 	} else {
-		if err := ht.updateTaskContainerResources(ctx, data); err != nil {
+		if err := ht.updateTaskContainerResources(ctx, resources, req.Annotations); err != nil {
 			return err
 		}
 	}
@@ -635,13 +635,13 @@ func (ht *hcsTask) Update(ctx context.Context, req *task.UpdateTaskRequest) erro
 	return nil
 }
 
-func (ht *hcsTask) updateTaskContainerResources(ctx context.Context, data interface{}) error {
+func (ht *hcsTask) updateTaskContainerResources(ctx context.Context, resources interface{}, annotations map[string]string) error {
 	if ht.isWCOW {
 		isIsolated := ht.host != nil
-		return updateWCOWResources(ctx, ht, isIsolated, ht.c, data)
+		return updateWCOWResources(ctx, ht, isIsolated, ht.c, resources, annotations)
 	}
 
-	return updateLCOWResources(ctx, ht.host, ht.id, data)
+	return updateLCOWResources(ctx, ht.host, ht.id, resources, annotations)
 }
 
 func (ht *hcsTask) Share(ctx context.Context, req *shimdiag.ShareRequest) error {

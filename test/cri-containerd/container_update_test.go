@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/katiewasnothere/cri/criextension"
+	"github.com/containerd/cri/criextension"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
 
@@ -105,16 +105,12 @@ func Test_Container_UpdateResources_CPUShare(t *testing.T) {
 			}
 
 			if test.runtimeHandler == lcowRuntimeHandler {
-				updateReq.Resources = &criextension.COWContainerResourcesV2{
-					StdLinuxResources: &runtime.LinuxContainerResources{
-						CpuShares: 5000,
-					},
+				updateReq.StdLinuxResources = &runtime.LinuxContainerResources{
+					CpuShares: 5000,
 				}
 			} else {
-				updateReq.Resources = &criextension.COWContainerResourcesV2{
-					StdWindowsResources: &runtime.WindowsContainerResources{
-						CpuShares: 5000,
-					},
+				updateReq.StdWindowsResources = &runtime.WindowsContainerResources{
+					CpuShares: 5000,
 				}
 			}
 
@@ -217,16 +213,12 @@ func Test_Container_UpdateResources_Memory(t *testing.T) {
 
 			newMemorySize := startingMemorySize / 2
 			if test.runtimeHandler == lcowRuntimeHandler {
-				updateReq.Resources = &criextension.COWContainerResourcesV2{
-					StdLinuxResources: &runtime.LinuxContainerResources{
-						MemoryLimitInBytes: newMemorySize,
-					},
+				updateReq.StdLinuxResources = &runtime.LinuxContainerResources{
+					MemoryLimitInBytes: newMemorySize,
 				}
 			} else {
-				updateReq.Resources = &criextension.COWContainerResourcesV2{
-					StdWindowsResources: &runtime.WindowsContainerResources{
-						MemoryLimitInBytes: newMemorySize,
-					},
+				updateReq.StdWindowsResources = &runtime.WindowsContainerResources{
+					MemoryLimitInBytes: newMemorySize,
 				}
 			}
 
