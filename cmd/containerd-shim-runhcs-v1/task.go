@@ -7,8 +7,6 @@ import (
 
 	"github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options"
 	"github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/stats"
-	"github.com/Microsoft/hcsshim/internal/log"
-	"github.com/Microsoft/hcsshim/internal/oci"
 	"github.com/Microsoft/hcsshim/internal/shimdiag"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/containerd/containerd/runtime/v2/task"
@@ -113,11 +111,6 @@ func updatePodResources(ctx context.Context, vm *uvm.UtilityVM, data interface{}
 				return err
 			}
 		}
-	}
-
-	log.G(ctx).WithField("annotations", annotations).Info("updating pod resources")
-	if err := oci.HandleCPUGroupSetup(ctx, vm, annotations); err != nil {
-		return err
 	}
 
 	return nil

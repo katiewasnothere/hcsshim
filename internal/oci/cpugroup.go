@@ -2,7 +2,6 @@ package oci
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/uvm"
@@ -16,7 +15,7 @@ func HandleCPUGroupSetup(ctx context.Context, vm *uvm.UtilityVM, annotations map
 		return nil
 	}
 	cpuGroupOpts := AnnotationsToCPUGroupOptions(ctx, annotations)
-	if cpuGroupOpts.ID == "" && cpuGroupOpts.CreateRandomID == false {
+	if cpuGroupOpts.ID == "" {
 		// user did not set any cpugroup requests, skip setting anything up
 		return nil
 	}
@@ -29,17 +28,13 @@ func HandleCPUGroupSetup(ctx context.Context, vm *uvm.UtilityVM, annotations map
 
 // AnnotationsToCPUGroupOptions parses the related cpugroup annotations and creates the CPUGroupOptions from the values
 func AnnotationsToCPUGroupOptions(ctx context.Context, annotations map[string]string) *uvm.CPUGroupOptions {
-	randomID := parseAnnotationsBool(ctx, annotations, annotationCPUGroupCreateRandomID, false)
 	id := parseAnnotationsString(annotations, annotationCPUGroupID, "")
-	lpIndices := parseCommaSeperatedUint32(annotations, annotationCPUGroupLPs, nil)
 
 	opts := &uvm.CPUGroupOptions{
-		CreateRandomID:    randomID,
-		ID:                id,
-		LogicalProcessors: lpIndices,
+		ID: id,
 	}
 
-	if cap, ok := annotations[annotationCPUGroupCap]; ok {
+	/*if cap, ok := annotations[annotationCPUGroupCap]; ok {
 		countu, err := strconv.ParseUint(cap, 10, 32)
 		if err == nil {
 			v := uint32(countu)
@@ -52,6 +47,6 @@ func AnnotationsToCPUGroupOptions(ctx context.Context, annotations map[string]st
 			v := uint32(countu)
 			opts.Priority = &v
 		}
-	}
+	}*/
 	return opts
 }

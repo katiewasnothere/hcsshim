@@ -173,7 +173,6 @@ func Test_Pod_UpdateResources_Memory_PA(t *testing.T) {
 
 const (
 	annotationCPUGroupID  = "io.microsoft.virtualmachine.cpugroup.id"
-	annotationCPUGroupLPs = "io.microsoft.virtualmachine.cpugroup.logicalprocessors"
 	annotationCPUGroupCap = "io.microsoft.virtualmachine.cpugroup.cap"
 )
 

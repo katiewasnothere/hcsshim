@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Microsoft/go-winio/pkg/guid"
 	"github.com/Microsoft/hcsshim/internal/hcs"
 	"github.com/Microsoft/hcsshim/internal/log"
 	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
@@ -35,7 +34,7 @@ func (uvm *UtilityVM) ReleaseCPUGroup(ctx context.Context) error {
 		return fmt.Errorf("failed to remove VM %s from cpugroup %s", uvm.ID(), groupID)
 	}
 
-	err := deleteCPUGroup(ctx, groupID)
+	err := DeleteCPUGroup(ctx, groupID)
 	if err != nil && err == _HV_STATUS_INVALID_CPU_GROUP_STATE {
 		log.G(ctx).WithField("error", err).Warn("cpugroup could not be deleted, other VMs may be in this group")
 		return nil
@@ -46,39 +45,16 @@ func (uvm *UtilityVM) ReleaseCPUGroup(ctx context.Context) error {
 // CPUGroupOptions is used to construct the various options for setting up/creating
 // a cpugroup for a UVM.
 type CPUGroupOptions struct {
-	CreateRandomID    bool
-	ID                string
-	LogicalProcessors []uint32
-	Cap               *uint32
-	Priority          *uint32
-}
-
-// verifyCPUGroupOptions verifies that the CPUGroupOptions are a valid cpugroup configuration
-func verifyCPUGroupOptions(opts *CPUGroupOptions) error {
-	if opts.CreateRandomID && opts.ID != CPUGroupNullID {
-		return fmt.Errorf("cannot use a specific cpugroup ID when the `CreateRandomID` option is set")
-	}
-	if len(opts.LogicalProcessors) == 0 || opts.LogicalProcessors == nil {
-		return fmt.Errorf("must specify the logical processors to use when creating a cpugroup")
-	}
-	return nil
+	ID       string
+	Cap      *uint32
+	Priority *uint32
 }
 
 // ConfigureVMCPUGroup parses the CPUGroupOptions `opts` and setups up the cpugroup for the VM
 // with the requested settings.
-//
-// If CreateRandomID is set, ignore any potential group ID that was also set on the opts
 func (uvm *UtilityVM) ConfigureVMCPUGroup(ctx context.Context, opts *CPUGroupOptions) error {
-	if err := verifyCPUGroupOptions(opts); err != nil {
-		return err
-	}
-	if opts.CreateRandomID {
-		id, err := guid.NewV4()
-		if err != nil {
-			return err
-		}
-		opts.ID = id.String()
-		log.G(ctx).WithField("id", id.String()).Info("Created random id")
+	if opts.ID == "" {
+		return fmt.Errorf("must specify an ID to use when configuring a VM's cpugroup")
 	}
 	exists, err := cpuGroupExists(ctx, opts.ID)
 	if err != nil {
@@ -86,15 +62,9 @@ func (uvm *UtilityVM) ConfigureVMCPUGroup(ctx context.Context, opts *CPUGroupOpt
 	}
 
 	if !exists {
-		log.G(ctx).WithField("lps", opts.LogicalProcessors).Info("the cpugroup does not exist")
-		if err := createNewCPUGroupWithID(ctx, opts.ID, opts.LogicalProcessors); err != nil {
-			return err
-		}
+		return fmt.Errorf("no cpugroup with ID %v exists on the host", opts.ID)
 	}
 
-	if err := updateCPUGroupProperties(ctx, opts.ID, opts.Cap, opts.Priority); err != nil {
-		return err
-	}
 	return uvm.setCPUGroup(ctx, opts.ID)
 }
 
@@ -129,7 +99,7 @@ func updateCPUGroupProperties(ctx context.Context, id string, cap, priority *uin
 
 // ModifyVMCPUGroup is used to modify the VM's cpugroup during runtime
 func (uvm *UtilityVM) ModifyVMCPUGroup(ctx context.Context, opts *CPUGroupOptions) error {
-	if opts.CreateRandomID || opts.ID != "" {
+	if opts.ID != "" {
 		// modify request changes the cpugroup that the VM should be in, so release the previous group
 		if err := uvm.ReleaseCPUGroup(ctx); err != nil {
 			return err
@@ -163,8 +133,8 @@ func (uvm *UtilityVM) unsetCPUGroup(ctx context.Context) error {
 	return uvm.setCPUGroup(ctx, CPUGroupNullID)
 }
 
-// deleteCPUGroup deletes the cpugroup from the host
-func deleteCPUGroup(ctx context.Context, id string) error {
+// DeleteCPUGroup deletes the cpugroup from the host
+func DeleteCPUGroup(ctx context.Context, id string) error {
 	operation := hcsschema.DeleteGroup
 	details := hcsschema.DeleteGroupOperation{
 		GroupId: id,
@@ -186,8 +156,8 @@ func modifyCPUGroupRequest(ctx context.Context, operation hcsschema.CPUGroupOper
 	return hcs.ModifyServiceSettings(ctx, req)
 }
 
-// createNewCPUGroupWithID creates a new cpugroup on the host with a prespecified id
-func createNewCPUGroupWithID(ctx context.Context, id string, logicalProcessors []uint32) error {
+// CreateNewCPUGroupWithID creates a new cpugroup on the host with a prespecified id
+func CreateNewCPUGroupWithID(ctx context.Context, id string, logicalProcessors []uint32) error {
 	operation := hcsschema.CreateGroup
 	details := &hcsschema.CreateGroupOperation{
 		GroupId:               strings.ToLower(id),

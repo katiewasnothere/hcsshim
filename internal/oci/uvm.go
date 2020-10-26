@@ -137,11 +137,7 @@ const (
 	annotationUseExternalGCSBridge = "io.microsoft.virtualmachine.useexternalgcsbridge"
 
 	// annotations relating to cpugroup creation
-	annotationCPUGroupCreateRandomID = "io.microsoft.virtualmachine.cpugroup.randomid"
-	annotationCPUGroupID             = "io.microsoft.virtualmachine.cpugroup.id"
-	annotationCPUGroupLPs            = "io.microsoft.virtualmachine.cpugroup.logicalprocessors"
-	annotationCPUGroupCap            = "io.microsoft.virtualmachine.cpugroup.cap"
-	annotationCPUGroupPriority       = "io.microsoft.virtualmachine.cpugroup.priority"
+	annotationCPUGroupID = "io.microsoft.virtualmachine.cpugroup.id"
 )
 
 // parseAnnotationsBool searches `a` for `key` and if found verifies that the

@@ -14,8 +14,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Microsoft/go-winio/pkg/guid"
+
 	"github.com/Microsoft/hcsshim/internal/hcs"
 	"github.com/Microsoft/hcsshim/internal/lcow"
+	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/Microsoft/hcsshim/osversion"
 	testutilities "github.com/Microsoft/hcsshim/test/functional/utilities"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
@@ -1142,26 +1145,34 @@ func Test_RunPodSandbox_CPUGroup_LCOW(t *testing.T) {
 
 	pullRequiredLcowImages(t, []string{imageLcowK8sPause})
 
+	ctx := context.Background()
+
+	// TODO katiewasnothere: add test code to create cpugroup
+	presentID := "FA22A12C-36B3-486D-A3E9-BC526C2B450B"
+	// we believe it is a resonable assumption that our test machines have at least two cores
+	// that can we used to create a cpugroup
+	logicalProcessors := []uint32{0, 1}
+	if err := uvm.CreateNewCPUGroupWithID(ctx, presentID, logicalProcessors); err != nil {
+		t.Fatalf("failed to create test cpugroup with: %v", err)
+	}
+	defer func() {
+		removeErr := uvm.DeleteCPUGroup(ctx, presentID)
+		if removeErr != nil {
+			t.Fatalf("failed to delete CPU group on cleanup with %v", removeErr)
+		}
+	}()
+
+	fakeGuid, err := guid.NewV4()
+	if err != nil {
+		t.Fatalf("failed to create a fake guid to use for testing %v", err)
+	}
+
 	annotations := []map[string]string{
 		{
 			"io.microsoft.virtualmachine.cpugroup.id": "FA22A12C-36B3-486D-A3E9-BC526C2B450B",
-			// we believe it is reasonable to assume our test machines will have at least two LPs, otherwise
-			// this test will fail.
-			"io.microsoft.virtualmachine.cpugroup.logicalprocessors": "0,1",
-			"io.microsoft.virtualmachine.cpugroup.cap":               "32768",
 		},
 		{
-			"io.microsoft.virtualmachine.cpugroup.randomid": "true",
-			// we believe it is reasonable to assume our test machines will have at least two LPs, otherwise
-			// this test will fail.
-			"io.microsoft.virtualmachine.cpugroup.logicalprocessors": "0,1",
-			"io.microsoft.virtualmachine.cpugroup.cap":               "32768",
-		},
-		{
-			"io.microsoft.virtualmachine.cpugroup.randomid": "true",
-		},
-		{
-			"io.microsoft.virtualmachine.cpugroup.id": "FA22A12C-36B3-486D-A3E9-BC526C2B450B",
+			"io.microsoft.virtualmachine.cpugroup.id": fakeGuid.String(),
 		},
 	}
 
@@ -1181,59 +1192,38 @@ func Test_RunPodSandbox_CPUGroup_LCOW(t *testing.T) {
 	}
 }
 
-func Test_RunPodSandbox_CPUGroupSchedulingPriority_LCOW(t *testing.T) {
-	requireFeatures(t, featureLCOW)
-
-	// TODO(katiewasnothere): update build version when this support is
-	// in an official release
-	if osversion.Get().Build < 20196 {
-		t.Skip("Requires build +20196")
-	}
-
-	pullRequiredLcowImages(t, []string{imageLcowK8sPause})
-
-	request := &runtime.RunPodSandboxRequest{
-		Config: &runtime.PodSandboxConfig{
-			Metadata: &runtime.PodSandboxMetadata{
-				Name:      t.Name(),
-				Uid:       "0",
-				Namespace: testNamespace,
-			},
-			Annotations: map[string]string{
-				"io.microsoft.virtualmachine.cpugroup.randomid": "true",
-				"io.microsoft.virtualmachine.cpugroup.priority": "2",
-			},
-		},
-		RuntimeHandler: lcowRuntimeHandler,
-	}
-	runPodSandboxTest(t, request)
-}
-
 func Test_RunPodSandbox_CPUGroup_WCOW_Hypervisor(t *testing.T) {
 	requireFeatures(t, featureWCOWHypervisor)
 
 	pullRequiredImages(t, []string{imageWindowsNanoserver})
+	ctx := context.Background()
+
+	// TODO katiewasnothere: add test code to create cpugroup
+	presentID := "FA22A12C-36B3-486D-A3E9-BC526C2B450B"
+	// we believe it is a resonable assumption that our test machines have at least two cores
+	// that can we used to create a cpugroup
+	logicalProcessors := []uint32{0, 1}
+	if err := uvm.CreateNewCPUGroupWithID(ctx, presentID, logicalProcessors); err != nil {
+		t.Fatalf("failed to create test cpugroup with: %v", err)
+	}
+	defer func() {
+		removeErr := uvm.DeleteCPUGroup(ctx, presentID)
+		if removeErr != nil {
+			t.Fatalf("failed to delete CPU group on cleanup with %v", removeErr)
+		}
+	}()
+
+	fakeGuid, err := guid.NewV4()
+	if err != nil {
+		t.Fatalf("failed to create a fake guid to use for testing %v", err)
+	}
 
 	annotations := []map[string]string{
 		{
 			"io.microsoft.virtualmachine.cpugroup.id": "FA22A12C-36B3-486D-A3E9-BC526C2B450B",
-			// we believe it is reasonable to assume our test machines will have at least two LPs, otherwise
-			// this test will fail.
-			"io.microsoft.virtualmachine.cpugroup.logicalprocessors": "0,1",
-			"io.microsoft.virtualmachine.cpugroup.cap":               "32768",
 		},
 		{
-			"io.microsoft.virtualmachine.cpugroup.randomid": "true",
-			// we believe it is reasonable to assume our test machines will have at least two LPs, otherwise
-			// this test will fail.
-			"io.microsoft.virtualmachine.cpugroup.logicalprocessors": "0,1",
-			"io.microsoft.virtualmachine.cpugroup.cap":               "32768",
-		},
-		{
-			"io.microsoft.virtualmachine.cpugroup.randomid": "true",
-		},
-		{
-			"io.microsoft.virtualmachine.cpugroup.id": "FA22A12C-36B3-486D-A3E9-BC526C2B450B",
+			"io.microsoft.virtualmachine.cpugroup.id": fakeGuid.String(),
 		},
 	}
 
@@ -1251,34 +1241,6 @@ func Test_RunPodSandbox_CPUGroup_WCOW_Hypervisor(t *testing.T) {
 		}
 		runPodSandboxTest(t, request)
 	}
-}
-
-func Test_RunPodSandbox_CPUGroupSchedulingPriority_WCOW_Hypervisor(t *testing.T) {
-	requireFeatures(t, featureWCOWHypervisor)
-
-	// TODO(katiewasnothere): update build version when this support is
-	// in an official release
-	if osversion.Get().Build < 20196 {
-		t.Skip("Requires build +20196")
-	}
-
-	pullRequiredImages(t, []string{imageWindowsNanoserver})
-
-	request := &runtime.RunPodSandboxRequest{
-		Config: &runtime.PodSandboxConfig{
-			Metadata: &runtime.PodSandboxMetadata{
-				Name:      t.Name(),
-				Uid:       "0",
-				Namespace: testNamespace,
-			},
-			Annotations: map[string]string{
-				"io.microsoft.virtualmachine.cpugroup.randomid": "true",
-				"io.microsoft.virtualmachine.cpugroup.priority": "2",
-			},
-		},
-		RuntimeHandler: wcowHypervisorRuntimeHandler,
-	}
-	runPodSandboxTest(t, request)
 }
 
 func createExt4VHD(ctx context.Context, t *testing.T, path string) {
