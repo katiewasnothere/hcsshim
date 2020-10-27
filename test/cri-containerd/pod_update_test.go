@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/Microsoft/go-winio/pkg/guid"
-	"github.com/containerd/cri/criextension"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
 
@@ -67,23 +66,22 @@ func Test_Pod_UpdateResources_Memory(t *testing.T) {
 			defer stopPodSandbox(t, client, ctx, podID)
 
 			// make request for shrinking memory size
-			criExtensionClient := newTestCRIExtensionClient(t)
 			newMemorySize := startingMemorySize / 2
-			updateReq := &criextension.UpdateContainerResourcesV2Request{
+			updateReq := &runtime.UpdateContainerResourcesRequest{
 				ContainerId: podID,
 			}
 
 			if test.runtimeHandler == lcowRuntimeHandler {
-				updateReq.StdLinuxResources = &runtime.LinuxContainerResources{
+				updateReq.Linux = &runtime.LinuxContainerResources{
 					MemoryLimitInBytes: newMemorySize,
 				}
 			} else {
-				updateReq.StdWindowsResources = &runtime.WindowsContainerResources{
+				updateReq.Windows = &runtime.WindowsContainerResources{
 					MemoryLimitInBytes: newMemorySize,
 				}
 			}
 
-			if _, err := criExtensionClient.UpdateContainerResourcesV2(ctx, updateReq); err != nil {
+			if _, err := client.UpdateContainerResources(ctx, updateReq); err != nil {
 				t.Fatalf("updating container resources for %s with %v", podID, err)
 			}
 
@@ -147,23 +145,22 @@ func Test_Pod_UpdateResources_Memory_PA(t *testing.T) {
 			defer stopPodSandbox(t, client, ctx, podID)
 
 			// make request for shrinking memory size
-			criExtensionClient := newTestCRIExtensionClient(t)
 			newMemorySize := startingMemorySize / 2
-			updateReq := &criextension.UpdateContainerResourcesV2Request{
+			updateReq := &runtime.UpdateContainerResourcesRequest{
 				ContainerId: podID,
 			}
 
 			if test.runtimeHandler == lcowRuntimeHandler {
-				updateReq.StdLinuxResources = &runtime.LinuxContainerResources{
+				updateReq.Linux = &runtime.LinuxContainerResources{
 					MemoryLimitInBytes: newMemorySize,
 				}
 			} else {
-				updateReq.StdWindowsResources = &runtime.WindowsContainerResources{
+				updateReq.Windows = &runtime.WindowsContainerResources{
 					MemoryLimitInBytes: newMemorySize,
 				}
 			}
 
-			if _, err := criExtensionClient.UpdateContainerResourcesV2(ctx, updateReq); err != nil {
+			if _, err := client.UpdateContainerResources(ctx, updateReq); err != nil {
 				t.Fatalf("updating container resources for %s with %v", podID, err)
 			}
 
@@ -227,8 +224,7 @@ func Test_Pod_UpdateResources_CPUGroup(t *testing.T) {
 			defer stopPodSandbox(t, client, ctx, podID)
 
 			// make request for updating cpugroup
-			criExtensionClient := newTestCRIExtensionClient(t)
-			updateReq := &criextension.UpdateContainerResourcesV2Request{
+			updateReq := &runtime.UpdateContainerResourcesRequest{
 				ContainerId: podID,
 				Annotations: map[string]string{},
 			}
@@ -240,7 +236,7 @@ func Test_Pod_UpdateResources_CPUGroup(t *testing.T) {
 			updateReq.Annotations[annotationCPUGroupID] = id.String()
 			updateReq.Annotations[annotationCPUGroupCap] = "2000"
 
-			if _, err := criExtensionClient.UpdateContainerResourcesV2(ctx, updateReq); err != nil {
+			if _, err := client.UpdateContainerResources(ctx, updateReq); err != nil {
 				t.Fatalf("updating container resources for %s with %v", podID, err)
 			}
 

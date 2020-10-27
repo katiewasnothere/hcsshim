@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/containerd/cri/criextension"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
 
@@ -99,22 +98,21 @@ func Test_Container_UpdateResources_CPUShare(t *testing.T) {
 			defer stopContainer(t, client, ctx, containerID)
 
 			// make request to increase cpu shares == cpu weight
-			criExtensionClient := newTestCRIExtensionClient(t)
-			updateReq := &criextension.UpdateContainerResourcesV2Request{
+			updateReq := &runtime.UpdateContainerResourcesRequest{
 				ContainerId: podID,
 			}
 
 			if test.runtimeHandler == lcowRuntimeHandler {
-				updateReq.StdLinuxResources = &runtime.LinuxContainerResources{
+				updateReq.Linux = &runtime.LinuxContainerResources{
 					CpuShares: 5000,
 				}
 			} else {
-				updateReq.StdWindowsResources = &runtime.WindowsContainerResources{
+				updateReq.Windows = &runtime.WindowsContainerResources{
 					CpuShares: 5000,
 				}
 			}
 
-			if _, err := criExtensionClient.UpdateContainerResourcesV2(ctx, updateReq); err != nil {
+			if _, err := client.UpdateContainerResources(ctx, updateReq); err != nil {
 				t.Fatalf("updating container resources for %s with %v", containerID, err)
 			}
 
@@ -206,23 +204,22 @@ func Test_Container_UpdateResources_Memory(t *testing.T) {
 			defer stopContainer(t, client, ctx, containerID)
 
 			// make request for cpu shares
-			criExtensionClient := newTestCRIExtensionClient(t)
-			updateReq := &criextension.UpdateContainerResourcesV2Request{
+			updateReq := &runtime.UpdateContainerResourcesRequest{
 				ContainerId: podID,
 			}
 
 			newMemorySize := startingMemorySize / 2
 			if test.runtimeHandler == lcowRuntimeHandler {
-				updateReq.StdLinuxResources = &runtime.LinuxContainerResources{
+				updateReq.Linux = &runtime.LinuxContainerResources{
 					MemoryLimitInBytes: newMemorySize,
 				}
 			} else {
-				updateReq.StdWindowsResources = &runtime.WindowsContainerResources{
+				updateReq.Windows = &runtime.WindowsContainerResources{
 					MemoryLimitInBytes: newMemorySize,
 				}
 			}
 
-			if _, err := criExtensionClient.UpdateContainerResourcesV2(ctx, updateReq); err != nil {
+			if _, err := client.UpdateContainerResources(ctx, updateReq); err != nil {
 				t.Fatalf("updating container resources for %s with %v", containerID, err)
 			}
 

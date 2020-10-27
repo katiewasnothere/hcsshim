@@ -7,7 +7,6 @@ require (
 	github.com/Microsoft/hcsshim v0.8.7
 	github.com/blang/semver v3.1.0+incompatible // indirect
 	github.com/containerd/containerd v1.3.2
-	github.com/containerd/cri/criextension v0.0.0-00010101000000-000000000000
 	github.com/containerd/go-runc v0.0.0-20180907222934-5a6d9f37cfa3
 	github.com/containerd/ttrpc v0.0.0-20190828154514-0e0f228740de
 	github.com/containerd/typeurl v0.0.0-20180627222232-a93fcdb778cd
@@ -30,9 +29,7 @@ require (
 	go.etcd.io/bbolt v1.3.3 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	google.golang.org/grpc v1.33.0
-	k8s.io/cri-api v0.19.2
+	k8s.io/cri-api v0.20.0-beta.2
 )
 
 replace github.com/Microsoft/hcsshim => ../
-
-replace github.com/containerd/cri/criextension => github.com/katiewasnothere/cri/criextension v0.0.0-20201023181724-bfcad96bd1e5

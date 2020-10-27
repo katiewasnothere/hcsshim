@@ -136,7 +136,7 @@ const (
 	// by default.
 	annotationUseExternalGCSBridge = "io.microsoft.virtualmachine.useexternalgcsbridge"
 
-	// annotations relating to cpugroup creation
+	// annotation used to specify the cpugroup ID that a UVM should be assigned to
 	annotationCPUGroupID = "io.microsoft.virtualmachine.cpugroup.id"
 )
 

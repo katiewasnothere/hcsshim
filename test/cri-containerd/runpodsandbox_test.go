@@ -14,8 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Microsoft/go-winio/pkg/guid"
-
 	"github.com/Microsoft/hcsshim/internal/hcs"
 	"github.com/Microsoft/hcsshim/internal/lcow"
 	"github.com/Microsoft/hcsshim/internal/uvm"
@@ -1155,24 +1153,10 @@ func Test_RunPodSandbox_CPUGroup_LCOW(t *testing.T) {
 	if err := uvm.CreateNewCPUGroupWithID(ctx, presentID, logicalProcessors); err != nil {
 		t.Fatalf("failed to create test cpugroup with: %v", err)
 	}
-	defer func() {
-		removeErr := uvm.DeleteCPUGroup(ctx, presentID)
-		if removeErr != nil {
-			t.Fatalf("failed to delete CPU group on cleanup with %v", removeErr)
-		}
-	}()
-
-	fakeGuid, err := guid.NewV4()
-	if err != nil {
-		t.Fatalf("failed to create a fake guid to use for testing %v", err)
-	}
 
 	annotations := []map[string]string{
 		{
-			"io.microsoft.virtualmachine.cpugroup.id": "FA22A12C-36B3-486D-A3E9-BC526C2B450B",
-		},
-		{
-			"io.microsoft.virtualmachine.cpugroup.id": fakeGuid.String(),
+			"io.microsoft.virtualmachine.cpugroup.id": presentID,
 		},
 	}
 
@@ -1206,24 +1190,10 @@ func Test_RunPodSandbox_CPUGroup_WCOW_Hypervisor(t *testing.T) {
 	if err := uvm.CreateNewCPUGroupWithID(ctx, presentID, logicalProcessors); err != nil {
 		t.Fatalf("failed to create test cpugroup with: %v", err)
 	}
-	defer func() {
-		removeErr := uvm.DeleteCPUGroup(ctx, presentID)
-		if removeErr != nil {
-			t.Fatalf("failed to delete CPU group on cleanup with %v", removeErr)
-		}
-	}()
-
-	fakeGuid, err := guid.NewV4()
-	if err != nil {
-		t.Fatalf("failed to create a fake guid to use for testing %v", err)
-	}
 
 	annotations := []map[string]string{
 		{
-			"io.microsoft.virtualmachine.cpugroup.id": "FA22A12C-36B3-486D-A3E9-BC526C2B450B",
-		},
-		{
-			"io.microsoft.virtualmachine.cpugroup.id": fakeGuid.String(),
+			"io.microsoft.virtualmachine.cpugroup.id": presentID,
 		},
 	}
 

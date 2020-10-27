@@ -19,7 +19,6 @@ import (
 	eventtypes "github.com/containerd/containerd/api/events"
 	eventsapi "github.com/containerd/containerd/api/services/events/v1"
 	eventruntime "github.com/containerd/containerd/runtime"
-	"github.com/containerd/cri/criextension"
 	"github.com/containerd/typeurl"
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
@@ -65,7 +64,7 @@ var (
 	imageWindowsServercore19041 = getWindowsServerCoreImage(osversion.V20H1)
 
 	// TODO katiewasnothere: take this out
-	imageWindowsNanoserverCustom = "docker.io/library/nanoserver:10.0.20228.1000"
+	imageWindowsNanoserverCustom = "docker.io/library/nanoserver:10.0.21259.1000"
 )
 
 // Flags
@@ -164,16 +163,6 @@ func newTestRuntimeClient(t *testing.T) runtime.RuntimeServiceClient {
 		t.Fatalf("failed to dial runtime client: %v", err)
 	}
 	return runtime.NewRuntimeServiceClient(conn)
-}
-
-func newTestCRIExtensionClient(t *testing.T) criextension.CRIExtensionRuntimeServiceClient {
-	ctx, cancel := context.WithTimeout(context.Background(), connectTimeout)
-	defer cancel()
-	conn, err := createGRPCConn(ctx)
-	if err != nil {
-		t.Fatalf("failed to dial runtime client: %v", err)
-	}
-	return criextension.NewCRIExtensionRuntimeServiceClient(conn)
 }
 
 func newTestEventService(t *testing.T) containerd.EventService {
