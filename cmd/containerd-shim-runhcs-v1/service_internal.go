@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	runhcsopts "github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options"
+	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/oci"
 	"github.com/Microsoft/hcsshim/internal/shimdiag"
 	containerd_v1_types "github.com/containerd/containerd/api/types/task"
@@ -380,7 +381,18 @@ func (s *service) closeIOInternal(ctx context.Context, req *task.CloseIORequest)
 }
 
 func (s *service) updateInternal(ctx context.Context, req *task.UpdateTaskRequest) (*google_protobuf1.Empty, error) {
-	return nil, errdefs.ErrNotImplemented
+	if req.Resources == nil {
+		return nil, errors.Wrapf(errdefs.ErrInvalidArgument, "resources cannot be empty, updating container %s resources failed", req.ID)
+	}
+	t, err := s.getTask(req.ID)
+	if err != nil {
+		return nil, err
+	}
+	log.G(ctx).WithField("req", req).Info("passing along the request to update task")
+	if err := t.Update(ctx, req); err != nil {
+		return nil, err
+	}
+	return empty, nil
 }
 
 func (s *service) waitInternal(ctx context.Context, req *task.WaitRequest) (*task.WaitResponse, error) {

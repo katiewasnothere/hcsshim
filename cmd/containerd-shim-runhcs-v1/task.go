@@ -5,6 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Microsoft/hcsshim/internal/log"
+	"github.com/sirupsen/logrus"
+
 	"github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options"
 	"github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/stats"
 	"github.com/Microsoft/hcsshim/internal/gcs"
@@ -95,6 +98,30 @@ type shimTask interface {
 	// If the host is hypervisor isolated and this task owns the host additional
 	// metrics on the UVM may be returned as well.
 	Stats(ctx context.Context) (*stats.Statistics, error)
+	// Update updates a task's container
+	Update(ctx context.Context, req *task.UpdateTaskRequest) error
+}
+
+func verifyTaskUpdateResourcesType(data interface{}) error {
+	switch data.(type) {
+	case *specs.WindowsResources:
+	case *specs.LinuxResources:
+	default:
+		return errors.New("update resources must be of type *WindowsResources or *LinuxResources")
+	}
+	return nil
+}
+
+func normalizeContainerMemorySize(ctx context.Context, cid string, requestedSize uint64) uint64 {
+	actual := (requestedSize + 1) &^ 1 // align up to an even number
+	if requestedSize != actual {
+		log.G(ctx).WithFields(logrus.Fields{
+			"containerID": cid,
+			"requested":   requestedSize,
+			"assigned":    actual,
+		}).Warn("Changing user requested MemorySizeInMB to align to 2MB")
+	}
+	return actual
 }
 
 // isStatsNotFound returns true if the err corresponds to a scenario

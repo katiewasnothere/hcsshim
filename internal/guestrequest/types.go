@@ -2,6 +2,7 @@ package guestrequest
 
 import (
 	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 // Arguably, many of these (at least CombinedLayers) should have been generated
@@ -66,18 +67,24 @@ type LCOWNetworkAdapter struct {
 	EncapOverhead   uint16 `json:",omitempty"`
 }
 
+type LCOWContainerConstraints struct {
+	Windows specs.WindowsResources `json:",omitempty"`
+	Linux   specs.LinuxResources   `json:",omitempty"`
+}
+
 type ResourceType string
 
 const (
 	// These are constants for v2 schema modify guest requests.
-	ResourceTypeMappedDirectory   ResourceType = "MappedDirectory"
-	ResourceTypeMappedVirtualDisk ResourceType = "MappedVirtualDisk"
-	ResourceTypeNetwork           ResourceType = "Network"
-	ResourceTypeNetworkNamespace  ResourceType = "NetworkNamespace"
-	ResourceTypeCombinedLayers    ResourceType = "CombinedLayers"
-	ResourceTypeVPMemDevice       ResourceType = "VPMemDevice"
-	ResourceTypeVPCIDevice        ResourceType = "VPCIDevice"
-	ResourceTypeHvSocket          ResourceType = "HvSocket"
+	ResourceTypeMappedDirectory      ResourceType = "MappedDirectory"
+	ResourceTypeMappedVirtualDisk    ResourceType = "MappedVirtualDisk"
+	ResourceTypeNetwork              ResourceType = "Network"
+	ResourceTypeNetworkNamespace     ResourceType = "NetworkNamespace"
+	ResourceTypeCombinedLayers       ResourceType = "CombinedLayers"
+	ResourceTypeVPMemDevice          ResourceType = "VPMemDevice"
+	ResourceTypeVPCIDevice           ResourceType = "VPCIDevice"
+	ResourceTypeContainerConstraints ResourceType = "ContainerConstraints"
+	ResourceTypeHvSocket             ResourceType = "HvSocket"
 )
 
 // GuestRequest is for modify commands passed to the guest.
