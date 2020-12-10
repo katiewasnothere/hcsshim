@@ -15,12 +15,15 @@ import (
 
 	"github.com/Microsoft/hcsshim/internal/cmd"
 	"github.com/Microsoft/hcsshim/internal/cow"
+	"github.com/Microsoft/hcsshim/internal/gcs"
 	"github.com/Microsoft/hcsshim/internal/hcsoci"
 	"github.com/Microsoft/hcsshim/internal/lcow"
 	"github.com/Microsoft/hcsshim/internal/resources"
+	"github.com/Microsoft/hcsshim/internal/schemaversion"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/Microsoft/hcsshim/osversion"
 	testutilities "github.com/Microsoft/hcsshim/test/functional/utilities"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 // TestLCOWUVMNoSCSINoVPMemInitrd starts an LCOW utility VM without a SCSI controller and
@@ -202,6 +205,66 @@ func TestLCOWSimplePodScenario(t *testing.T) {
 	runInitProcess(t, c1hcsSystem, "hello lcow container one")
 	runInitProcess(t, c2hcsSystem, "hello lcow container two")
 
+}
+
+func TestLCOWContainerMemoryUpdate(t *testing.T) {
+	testutilities.RequiresBuild(t, osversion.RS5)
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Second)
+	defer cancel()
+
+	containerLayers := testutilities.LayerFoldersPlatform(t, "docker.io/library/alpine:latest", "linux")
+
+	//uvmLayers := testutilities.LayerFolders(t, "docker.io/library/alpine:latest")
+
+	id := "uvm"
+	uvmOpts := uvm.NewDefaultOptionsLCOW(id, "")
+	// uvmOpts.LayerFolders = uvmLayers
+
+	lcowUVM := testutilities.CreateLCOWUVMFromOpts(ctx, t, uvmOpts)
+	defer lcowUVM.Close()
+
+	c1Spec := generateLCOWOCITestSpecGeneric(t, containerLayers)
+	c1Spec.Annotations = make(map[string]string)
+	c1Spec.Annotations["io.microsoft.virtualmachine.computetopology.memory.sizeinmb"] = "1024"
+	c1Opts := &hcsoci.CreateOptions{
+		ID:            "xenonLCOW",
+		Spec:          c1Spec,
+		SchemaVersion: schemaversion.SchemaV21(),
+		HostingSystem: lcowUVM,
+	}
+
+	// Create the two containers
+	c1hcsSystem, c1Resources, err := hcsoci.CreateContainer(ctx, c1Opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resources.ReleaseResources(ctx, c1Resources, lcowUVM, true)
+
+	if err := c1hcsSystem.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	newMemorySize := uint64(1024 * 2)
+	if err := gcs.UpdateContainerMemory(ctx, c1hcsSystem, newMemorySize); err != nil {
+		t.Fatalf("Failed to update container memory size: %v", err)
+	}
+}
+
+func generateLCOWOCITestSpecGeneric(t *testing.T, imageLayers []string) *specs.Spec {
+	return &specs.Spec{
+		Windows: &specs.Windows{
+			LayerFolders: imageLayers,
+		},
+		// internals check if `Linux` is non nil to determine if the container
+		// is wcow or lcow
+		Linux: &specs.Linux{},
+		Process: &specs.Process{
+			Args: []string{
+				"top",
+			},
+			Cwd: "/",
+		},
+	}
 }
 
 // Helper to run the init process in an LCOW container; verify it exits with exit
