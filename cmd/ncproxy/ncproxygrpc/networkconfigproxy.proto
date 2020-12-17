@@ -5,6 +5,7 @@ package ncproxygrpc;
 service NetworkConfigProxy {
     rpc AddNIC(AddNICRequest) returns (AddNICResponse) {}
     rpc DeleteNIC(DeleteNICRequest) returns (DeleteNICResponse) {}
+    rpc ModifyNIC(ModifyNICRequest) returns (ModifyNICResponse) {}
     rpc CreateNetwork(CreateNetworkRequest) returns (CreateNetworkResponse) {}
     rpc CreateEndpoint(CreateEndpointRequest) returns (CreateEndpointResponse) {}
     rpc AddEndpoint(AddEndpointRequest) returns (AddEndpointResponse) {}
@@ -31,6 +32,15 @@ message DeleteNICRequest {
 }
 
 message DeleteNICResponse {}
+
+message ModifyNICRequest {
+    string container_id = 1;
+    string nic_id = 2;
+    string endpoint_name = 3;
+    uint32 iov_weight = 4; 
+}
+
+message ModifyNICResponse {}
 
 message CreateNetworkRequest {
     enum NetworkMode

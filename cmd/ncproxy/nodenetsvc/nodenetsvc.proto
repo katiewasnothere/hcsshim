@@ -10,6 +10,7 @@ service NodeNetworkService {
 
 message ConfigureNetworkingRequest{
     string container_id = 1;
+    RequestType request_type = 2;
 }
 
 message ConfigureNetworkingResponse{}
@@ -37,4 +38,5 @@ message ConfigureContainerNetworkingResponse {
 enum RequestType { 
     RequestType_Setup = 0; 
     RequestType_Teardown = 1; 
+    RequestType_Modify = 2;
 } 

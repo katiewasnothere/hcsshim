@@ -9,6 +9,7 @@ import (
 
 	"github.com/Microsoft/hcsshim/internal/hcsoci"
 	"github.com/Microsoft/hcsshim/internal/log"
+	"github.com/Microsoft/hcsshim/internal/ncproxyttrpc"
 	"github.com/Microsoft/hcsshim/internal/oci"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/Microsoft/hcsshim/osversion"
@@ -185,7 +186,7 @@ func createPod(ctx context.Context, events publisher, req *task.CreateTaskReques
 		}
 
 		if nsid != "" {
-			if err := netSetup.ConfigureNetworking(ctx, nsid); err != nil {
+			if err := netSetup.ConfigureNetworking(ctx, nsid, ncproxyttrpc.RequestType_RequestType_Setup); err != nil {
 				return nil, errors.Wrapf(err, "failed to setup networking for pod %q", req.ID)
 			}
 		}

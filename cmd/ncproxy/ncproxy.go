@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"sync"
 
@@ -48,6 +49,68 @@ func (s *grpcService) AddNIC(ctx context.Context, req *ncproxygrpc.AddNICRequest
 			return nil, err
 		}
 		return &ncproxygrpc.AddNICResponse{}, nil
+	}
+	return nil, status.Errorf(codes.FailedPrecondition, "No shim registered for namespace `%s`", req.ContainerID)
+}
+
+func (s *grpcService) ModifyNIC(ctx context.Context, req *ncproxygrpc.ModifyNICRequest) (*ncproxygrpc.ModifyNICResponse, error) {
+	log.G(ctx).WithFields(logrus.Fields{
+		"containerID":  req.ContainerID,
+		"endpointName": req.EndpointName,
+		"nicID":        req.NicID,
+	}).Info("ModifyNIC request")
+
+	if req.ContainerID == "" || req.EndpointName == "" || req.NicID == "" {
+		return nil, status.Error(codes.InvalidArgument, "received empty field in request")
+	}
+	if client, ok := containerIDToShim[req.ContainerID]; ok {
+		// Changing of the offload weight needs to be ordered correctly. If it's being turned off,
+		// we first need to call HCS to change the offload weight and then we need to call HNS to revoke the policy.
+		// Whereas if we're enabling it, the ordering is reversed.
+		caReq := &computeagent.ModifyNICInternalRequest{
+			NicID:        req.NicID,
+			EndpointName: req.EndpointName,
+		}
+
+		iov := hcn.IovPolicySetting{
+			IovOffloadWeight: req.IovWeight,
+		}
+		rawJSON, err := json.Marshal(iov)
+		if err != nil {
+			return nil, err
+		}
+
+		iovPolicy := hcn.EndpointPolicy{
+			Type:     hcn.IOV,
+			Settings: rawJSON,
+		}
+		policies := []hcn.EndpointPolicy{iovPolicy}
+
+		ep, err := hcn.GetEndpointByName(req.EndpointName)
+		if err != nil {
+			if _, ok := err.(hcn.EndpointNotFoundError); ok {
+				return nil, status.Errorf(codes.NotFound, "no endpoint with name `%s` found", req.EndpointName)
+			}
+			return nil, fmt.Errorf("failed to get endpoint with name `%s`: %s", req.EndpointName, err)
+		}
+
+		if req.IovWeight == 0 {
+			if _, err := client.ModifyNIC(ctx, caReq); err != nil {
+				return nil, err
+			}
+			if err := modifyEndpoint(ep.Id, policies); err != nil {
+				return nil, errors.Wrap(err, "failed to modify network adapter")
+			}
+		} else {
+			if err := modifyEndpoint(ep.Id, policies); err != nil {
+				return nil, errors.Wrap(err, "failed to modify network adapter")
+			}
+			if _, err := client.ModifyNIC(ctx, caReq); err != nil {
+				return nil, err
+			}
+		}
+
+		return &ncproxygrpc.ModifyNICResponse{}, nil
 	}
 	return nil, status.Errorf(codes.FailedPrecondition, "No shim registered for namespace `%s`", req.ContainerID)
 }
@@ -435,9 +498,28 @@ func (s *ttrpcService) ConfigureNetworking(ctx context.Context, req *ncproxyttrp
 		return nil, status.Error(codes.FailedPrecondition, "No NodeNetworkService client registered")
 	}
 
-	netsvcReq := &nodenetsvc.ConfigureNetworkingRequest{ContainerID: req.ContainerID}
+	netsvcReq := &nodenetsvc.ConfigureNetworkingRequest{ContainerID: req.ContainerID, RequestType: nodenetsvc.RequestType(req.RequestType)}
 	if _, err := nodeNetSvcClient.client.ConfigureNetworking(ctx, netsvcReq); err != nil {
 		return nil, err
 	}
 	return &ncproxyttrpc.ConfigureNetworkingInternalResponse{}, nil
+}
+
+func modifyEndpoint(id string, policies []hcn.EndpointPolicy) error {
+	endpointRequest := hcn.PolicyEndpointRequest{
+		Policies: policies,
+	}
+
+	settingsJSON, err := json.Marshal(endpointRequest)
+	if err != nil {
+		return err
+	}
+
+	requestMessage := &hcn.ModifyEndpointSettingRequest{
+		ResourceType: hcn.EndpointResourceTypePolicy,
+		RequestType:  hcn.RequestTypeUpdate,
+		Settings:     settingsJSON,
+	}
+
+	return hcn.ModifyEndpointSettings(id, requestMessage)
 }

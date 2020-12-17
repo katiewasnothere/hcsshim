@@ -3,6 +3,7 @@ package hcsoci
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/Microsoft/hcsshim/internal/hns"
 	"github.com/Microsoft/hcsshim/internal/log"
@@ -74,7 +75,7 @@ func GetNamespaceEndpoints(ctx context.Context, netNS string) ([]*hns.HNSEndpoin
 // NetworkSetup is used to abstract away the details of setting up networking
 // for a container.
 type NetworkSetup interface {
-	ConfigureNetworking(ctx context.Context, namespaceID string) error
+	ConfigureNetworking(context.Context, string, ncproxyttrpc.RequestType) error
 }
 
 // LocalNetworkSetup implements the NetworkSetup interface for configuring container
@@ -83,7 +84,7 @@ type LocalNetworkSetup struct {
 	VM *uvm.UtilityVM
 }
 
-func (l *LocalNetworkSetup) ConfigureNetworking(ctx context.Context, namespaceID string) error {
+func (l *LocalNetworkSetup) ConfigureNetworking(ctx context.Context, namespaceID string, _ ncproxyttrpc.RequestType) error {
 	endpoints, err := GetNamespaceEndpoints(ctx, namespaceID)
 	if err != nil {
 		return err
@@ -103,13 +104,32 @@ type ExternalNetworkSetup struct {
 	ContainerID string
 }
 
-func (e *ExternalNetworkSetup) ConfigureNetworking(ctx context.Context, namespaceID string) error {
+func (e *ExternalNetworkSetup) ConfigureNetworking(ctx context.Context, namespaceID string, requestType ncproxyttrpc.RequestType) error {
 	client := e.VM.NCProxyClient()
 	if client == nil {
 		return fmt.Errorf("no ncproxy client for UVM %q", e.VM.ID())
 	}
 
-	if err := e.VM.AddNetNS(ctx, namespaceID); err != nil {
+	if requestType == ncproxyttrpc.RequestType_RequestType_Setup {
+		if err := e.VM.AddNetNS(ctx, namespaceID); err != nil {
+			return err
+		}
+	}
+
+	// TODO katiewasnothere: print namespaceID to a file for testing
+	filename := fmt.Sprintf("C:\\ContainerPlatData\\%s", e.ContainerID)
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.Remove(filename); err != nil {
+			log.G(ctx).WithField("filename", filename).Warn("failed to remove temp file")
+		}
+	}()
+
+	_, err = f.WriteString(namespaceID)
+	if err != nil {
 		return err
 	}
 
@@ -123,6 +143,7 @@ func (e *ExternalNetworkSetup) ConfigureNetworking(ctx context.Context, namespac
 
 	netReq := &ncproxyttrpc.ConfigureNetworkingInternalRequest{
 		ContainerID: e.ContainerID,
+		RequestType: requestType,
 	}
 	if _, err := client.ConfigureNetworking(ctx, netReq); err != nil {
 		return err

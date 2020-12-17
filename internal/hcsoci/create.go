@@ -14,6 +14,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/cow"
 	"github.com/Microsoft/hcsshim/internal/hcs"
 	"github.com/Microsoft/hcsshim/internal/log"
+	"github.com/Microsoft/hcsshim/internal/ncproxyttrpc"
 	"github.com/Microsoft/hcsshim/internal/oci"
 	"github.com/Microsoft/hcsshim/internal/resources"
 	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
@@ -152,13 +153,17 @@ func CreateContainer(ctx context.Context, createOptions *CreateOptions) (_ cow.C
 			// the namespace.
 			if ct == oci.KubernetesContainerTypeNone || ct == oci.KubernetesContainerTypeSandbox {
 				if coi.NetSetup != nil {
-					if err := coi.NetSetup.ConfigureNetworking(ctx, coi.actualNetworkNamespace); err != nil {
+					if err := coi.NetSetup.ConfigureNetworking(ctx, coi.actualNetworkNamespace, ncproxyttrpc.RequestType_RequestType_Setup); err != nil {
+						return nil, r, err
+					}
+					// TODO katiewasnothere: temp code to test out modify
+					if err := coi.NetSetup.ConfigureNetworking(ctx, coi.actualNetworkNamespace, ncproxyttrpc.RequestType_RequestType_Modify); err != nil {
 						return nil, r, err
 					}
 				} else {
 					// No network interface passed in, just set up locally.
 					localNet := &LocalNetworkSetup{coi.HostingSystem}
-					if err := localNet.ConfigureNetworking(ctx, coi.actualNetworkNamespace); err != nil {
+					if err := localNet.ConfigureNetworking(ctx, coi.actualNetworkNamespace, ncproxyttrpc.RequestType_RequestType_Setup); err != nil {
 						return nil, r, err
 					}
 				}

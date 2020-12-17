@@ -8,6 +8,7 @@ import (
 	"github.com/Microsoft/go-winio"
 	"github.com/Microsoft/hcsshim/internal/computeagent"
 	"github.com/Microsoft/hcsshim/internal/hns"
+	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/Microsoft/hcsshim/pkg/octtrpc"
 	"github.com/containerd/ttrpc"
@@ -67,6 +68,33 @@ func (ca *computeAgent) DeleteNIC(ctx context.Context, req *computeagent.DeleteN
 		return nil, fmt.Errorf("failed to remove endpoint `%s` from namespace `%s`: %s", req.EndpointName, endpoint.Namespace.ID, err)
 	}
 	return &computeagent.DeleteNICInternalResponse{}, nil
+}
+
+// ModifyNIC will modify a NIC from the computeagent services hosting UVM.
+func (ca *computeAgent) ModifyNIC(ctx context.Context, req *computeagent.ModifyNICInternalRequest) (*computeagent.ModifyNICInternalResponse, error) {
+	log.G(ctx).WithFields(logrus.Fields{
+		"nicID":        req.NicID,
+		"endpointName": req.EndpointName,
+	}).Info("DeleteNIC request")
+
+	endpoint, err := hns.GetHNSEndpointByName(req.EndpointName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get endpoint with name `%s`: %s", req.EndpointName, err)
+	}
+
+	nic := &hcsschema.NetworkAdapter{
+		EndpointId: endpoint.Id,
+		MacAddress: endpoint.MacAddress,
+		IovSettings: &hcsschema.IovSettings{
+			OffloadWeight: req.IovWeight,
+		},
+	}
+
+	if err := ca.uvm.UpdateNIC(ctx, req.NicID, nic); err != nil {
+		return nil, errors.Wrap(err, "failed to update UVMS network adapter")
+	}
+
+	return &computeagent.ModifyNICInternalResponse{}, nil
 }
 
 func setupComputeAgent(caAddr string, parent *uvm.UtilityVM) (*ttrpc.Server, net.Listener, error) {
