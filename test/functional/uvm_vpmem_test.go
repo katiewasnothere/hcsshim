@@ -17,7 +17,7 @@ import (
 // TestVPMEM tests adding/removing VPMem Read-Only layers from a v2 Linux utility VM
 func TestVPMEM(t *testing.T) {
 	testutilities.RequiresBuild(t, osversion.RS5)
-	alpineLayers := testutilities.LayerFolders(t, "alpine")
+	alpineLayers := testutilities.LayerFoldersPlatform(t, "docker.io/library/alpine:latest", "linux")
 
 	ctx := context.Background()
 	u := testutilities.CreateLCOWUVM(ctx, t, t.Name())
