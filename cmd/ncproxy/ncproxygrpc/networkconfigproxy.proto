@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package ncproxygrpc;
 
+import "google/protobuf/any.proto";
+
 service NetworkConfigProxy {
     rpc AddNIC(AddNICRequest) returns (AddNICResponse) {}
     rpc DeleteNIC(DeleteNICRequest) returns (DeleteNICResponse) {}
@@ -67,21 +69,12 @@ message CreateNetworkResponse{
 }
 
 message CreateEndpointRequest {
-    enum EndpointPolicyType
-    {
-        PortName = 0;
-    }
-
-    message PortNameEndpointPolicySetting {
-        string port_name = 1;
-    }
-
     string name = 1;
     string macaddress = 2;
     string ipaddress = 3;
     string ipaddress_prefixlength = 4;
     EndpointPolicyType policy_type = 5;
-    PortNameEndpointPolicySetting portname_policy_setting = 6;
+    google.protobuf.Any policy_settings = 6;
     string network_name = 7;
 }
 
@@ -138,4 +131,20 @@ message GetNetworksRequest{}
 
 message GetNetworksResponse{
     repeated GetNetworkResponse networks = 1;
+}
+
+enum EndpointPolicyType
+{
+    PortName = 0;
+    IOV = 1; 
+}
+
+message PortNameEndpointPolicySetting {
+    string port_name = 1;
+}
+
+message IovEndpointPolicySetting {
+    uint32 IovOffloadWeight = 1;
+    uint32 QueuePairsRequested = 2; 
+    uint32 InterruptModeration = 3;
 }

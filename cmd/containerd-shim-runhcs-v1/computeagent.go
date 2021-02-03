@@ -75,7 +75,7 @@ func (ca *computeAgent) ModifyNIC(ctx context.Context, req *computeagent.ModifyN
 	log.G(ctx).WithFields(logrus.Fields{
 		"nicID":        req.NicID,
 		"endpointName": req.EndpointName,
-	}).Info("DeleteNIC request")
+	}).Info("ModifyNIC request")
 
 	endpoint, err := hns.GetHNSEndpointByName(req.EndpointName)
 	if err != nil {
@@ -86,7 +86,7 @@ func (ca *computeAgent) ModifyNIC(ctx context.Context, req *computeagent.ModifyN
 		EndpointId: endpoint.Id,
 		MacAddress: endpoint.MacAddress,
 		IovSettings: &hcsschema.IovSettings{
-			OffloadWeight: req.IovWeight,
+			OffloadWeight: &req.IovWeight,
 		},
 	}
 

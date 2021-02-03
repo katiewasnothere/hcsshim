@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -15,6 +16,8 @@ import (
 	"github.com/Microsoft/hcsshim/cmd/ncproxy/nodenetsvc"
 	"github.com/Microsoft/hcsshim/internal/hns"
 	"github.com/Microsoft/hcsshim/internal/log"
+	"github.com/containerd/typeurl"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 )
 
@@ -67,6 +70,24 @@ func (s *service) ConfigureContainerNetworking(ctx context.Context, req *nodenet
 	return &nodenetsvc.ConfigureContainerNetworkingResponse{}, nil
 }
 
+func generateMac() (string, error) {
+	buf := make([]byte, 6)
+	var mac net.HardwareAddr
+
+	_, err := rand.Read(buf)
+	if err != nil {
+		return "", err
+	}
+
+	// set first numbers to 0
+	buf[0] = 0
+
+	mac = append(mac, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5])
+	macString := mac.String()
+	macString = strings.Replace(macString, ":", "-", -1)
+	return strings.ToUpper(macString), nil
+}
+
 func (s *service) addHelper(ctx context.Context, req *nodenetsvc.ConfigureNetworkingRequest, containerNamespaceID string) (*nodenetsvc.ConfigureNetworkingResponse, error) {
 	// for testing purposes, make the endpoint here
 	// - create network, create endpoint, add that to the namespace
@@ -75,12 +96,30 @@ func (s *service) addHelper(ctx context.Context, req *nodenetsvc.ConfigureNetwor
 		return nil, err
 	}
 
+	iovSettings := &ncproxygrpc.IovEndpointPolicySetting{
+		IovOffloadWeight:    100,
+		QueuePairsRequested: 1,
+		InterruptModeration: 200,
+	}
+
+	policySettings, err := typeurl.MarshalAny(iovSettings)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal iov settings to create endpoint")
+	}
+
+	macAddr, err := generateMac()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create a usable mac address")
+	}
+
 	endpointCreateReq := &ncproxygrpc.CreateEndpointRequest{
 		Name:                  req.ContainerID + "_endpoint",
-		Macaddress:            "00-15-5D-CA-00-03",
-		Ipaddress:             "192.168.1.6",
+		Macaddress:            macAddr,
+		Ipaddress:             "192.168.1.31",
 		IpaddressPrefixlength: "24",
 		NetworkName:           networkInfo.Name,
+		PolicyType:            ncproxygrpc.EndpointPolicyType_IOV,
+		PolicySettings:        policySettings,
 	}
 	_, err = s.client.CreateEndpoint(ctx, endpointCreateReq)
 	if err != nil {

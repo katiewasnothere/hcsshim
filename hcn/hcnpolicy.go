@@ -186,7 +186,7 @@ const (
 
 // IovPolicySetting sets the Iov settings for an endpoint.
 type IovPolicySetting struct {
-	IovOffloadWeight    uint32                     `json:",omitempty"`
+	IovOffloadWeight    uint32                     `json:","`
 	QueuePairsRequested uint32                     `json:",omitempty"`
 	InterruptModeration IovInterruptModerationType `json:",omitempty"`
 }

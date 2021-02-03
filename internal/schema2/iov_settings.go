@@ -12,11 +12,11 @@ package hcsschema
 type IovSettings struct {
 	// The weight assigned to this port for I/O virtualization (IOV) offloading.
 	// Setting this to 0 disables IOV offloading.
-	OffloadWeight uint32 `json:"OffloadWeight,omitempty"`
+	OffloadWeight *uint32 `json:"OffloadWeight,omitempty"`
 
 	// The number of queue pairs requested for this port for I/O virtualization (IOV) offloading.
-	QueuePairsRequested uint32 `json:"QueuePairsRequested,omitempty"`
+	QueuePairsRequested *uint32 `json:"QueuePairsRequested,omitempty"`
 
 	// The interrupt moderation mode for I/O virtualization (IOV) offloading.
-	InterruptModeration InterruptModerationMode `json:"InterruptModeration,omitempty"`
+	InterruptModeration *InterruptModerationMode `json:"InterruptModeration,omitempty"`
 }

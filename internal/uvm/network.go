@@ -359,7 +359,7 @@ func (uvm *UtilityVM) removeNIC(ctx context.Context, id string, endpoint *hns.HN
 }
 
 // UpdateNIC updates a UVMS network adapter.
-func (uvm *UtilityVM) UpdateNIC(ctx context.Context, id string, settings *hcsschema.NetworkAdapter) error {
+func (uvm *UtilityVM) UpdateNIC(ctx context.Context, id string, settings interface{}) error {
 	req := &hcsschema.ModifySettingRequest{
 		RequestType:  requesttype.Update,
 		ResourcePath: fmt.Sprintf(networkResourceFormat, id),

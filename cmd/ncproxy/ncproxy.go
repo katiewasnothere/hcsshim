@@ -15,6 +15,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/ncproxyttrpc"
 	"github.com/containerd/ttrpc"
+	"github.com/containerd/typeurl"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -70,10 +71,13 @@ func (s *grpcService) ModifyNIC(ctx context.Context, req *ncproxygrpc.ModifyNICR
 		caReq := &computeagent.ModifyNICInternalRequest{
 			NicID:        req.NicID,
 			EndpointName: req.EndpointName,
+			IovWeight:    req.IovWeight,
 		}
 
 		iov := hcn.IovPolicySetting{
-			IovOffloadWeight: req.IovWeight,
+			IovOffloadWeight:    req.IovWeight,
+			QueuePairsRequested: 1,
+			InterruptModeration: hcn.IovInterruptModerationMedium,
 		}
 		rawJSON, err := json.Marshal(iov)
 		if err != nil {
@@ -94,15 +98,26 @@ func (s *grpcService) ModifyNIC(ctx context.Context, req *ncproxygrpc.ModifyNICR
 			return nil, fmt.Errorf("failed to get endpoint with name `%s`: %s", req.EndpointName, err)
 		}
 
+		log.G(ctx).WithFields(logrus.Fields{
+			"caReq":     caReq,
+			"policies":  policies,
+			"iovweight": req.IovWeight,
+			"iov":       iov,
+			"rawIOV":    rawJSON,
+		}).Info("ModifyNIC request parameters")
+
 		if req.IovWeight == 0 {
 			if _, err := client.ModifyNIC(ctx, caReq); err != nil {
 				return nil, err
 			}
-			if err := modifyEndpoint(ep.Id, policies); err != nil {
+			if err := modifyEndpoint(ctx, ep.Id, policies, hcn.RequestTypeUpdate); err != nil {
+				return nil, errors.Wrap(err, "failed to modify network adapter")
+			}
+			if err := modifyEndpoint(ctx, ep.Id, policies, hcn.RequestTypeRemove); err != nil {
 				return nil, errors.Wrap(err, "failed to modify network adapter")
 			}
 		} else {
-			if err := modifyEndpoint(ep.Id, policies); err != nil {
+			if err := modifyEndpoint(ctx, ep.Id, policies, hcn.RequestTypeUpdate); err != nil {
 				return nil, errors.Wrap(err, "failed to modify network adapter")
 			}
 			if _, err := client.ModifyNIC(ctx, caReq); err != nil {
@@ -257,14 +272,12 @@ func (s *grpcService) CreateEndpoint(ctx context.Context, req *ncproxygrpc.Creat
 		PrefixLength: uint8(prefixLen),
 	}
 
-	// Construct the portname policy we'll be setting on the endpoint.
-	var portPolicy hcn.PortnameEndpointPolicySetting
-	if req.PortnamePolicySetting != nil {
-		portPolicy = hcn.PortnameEndpointPolicySetting{
-			Name: req.PortnamePolicySetting.PortName,
-		}
+	// Construct the policy we'll be setting on the endpoint.
+	policySettings, err := typeurl.UnmarshalAny(req.PolicySettings)
+	if err != nil {
+		return nil, err
 	}
-	portPolicyJSON, err := json.Marshal(portPolicy)
+	policySettingsJSON, err := json.Marshal(policySettings)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal portname")
 	}
@@ -272,7 +285,7 @@ func (s *grpcService) CreateEndpoint(ctx context.Context, req *ncproxygrpc.Creat
 	// Construct endpoint policy
 	epPolicy := hcn.EndpointPolicy{
 		Type:     hcn.EndpointPolicyType(req.PolicyType.String()),
-		Settings: portPolicyJSON,
+		Settings: policySettingsJSON,
 	}
 
 	endpoint := &hcn.HostComputeEndpoint{
@@ -505,7 +518,7 @@ func (s *ttrpcService) ConfigureNetworking(ctx context.Context, req *ncproxyttrp
 	return &ncproxyttrpc.ConfigureNetworkingInternalResponse{}, nil
 }
 
-func modifyEndpoint(id string, policies []hcn.EndpointPolicy) error {
+func modifyEndpoint(ctx context.Context, id string, policies []hcn.EndpointPolicy, requestType hcn.RequestType) error {
 	endpointRequest := hcn.PolicyEndpointRequest{
 		Policies: policies,
 	}
@@ -517,9 +530,11 @@ func modifyEndpoint(id string, policies []hcn.EndpointPolicy) error {
 
 	requestMessage := &hcn.ModifyEndpointSettingRequest{
 		ResourceType: hcn.EndpointResourceTypePolicy,
-		RequestType:  hcn.RequestTypeUpdate,
+		RequestType:  requestType,
 		Settings:     settingsJSON,
 	}
+
+	log.G(ctx).WithField("request", requestMessage).Info("sending HcnModifyEndpoint request")
 
 	return hcn.ModifyEndpointSettings(id, requestMessage)
 }

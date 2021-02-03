@@ -9,14 +9,14 @@
 
 package hcsschema
 
-type InterruptModerationMode uint32
+type InterruptModerationMode string
 
 // The valid interrupt moderation modes for I/O virtualization (IOV) offloading.
 const (
-	Default  InterruptModerationMode = 0
-	Adaptive InterruptModerationMode = 1
-	Off      InterruptModerationMode = 2
-	Low      InterruptModerationMode = 100
-	Medium   InterruptModerationMode = 200
-	High     InterruptModerationMode = 300
+	Default  InterruptModerationMode = "Default"
+	Adaptive InterruptModerationMode = "Adaptive"
+	Off      InterruptModerationMode = "Off"
+	Low      InterruptModerationMode = "Low"
+	Medium   InterruptModerationMode = "Medium"
+	High     InterruptModerationMode = "High"
 )
