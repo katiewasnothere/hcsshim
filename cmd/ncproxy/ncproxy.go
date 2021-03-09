@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"sync"
 
@@ -49,6 +50,81 @@ func (s *grpcService) AddNIC(ctx context.Context, req *ncproxygrpc.AddNICRequest
 			return nil, err
 		}
 		return &ncproxygrpc.AddNICResponse{}, nil
+	}
+	return nil, status.Errorf(codes.FailedPrecondition, "No shim registered for namespace `%s`", req.ContainerID)
+}
+
+func (s *grpcService) ModifyNIC(ctx context.Context, req *ncproxygrpc.ModifyNICRequest) (*ncproxygrpc.ModifyNICResponse, error) {
+	log.G(ctx).WithFields(logrus.Fields{
+		"containerID":  req.ContainerID,
+		"endpointName": req.EndpointName,
+		"nicID":        req.NicID,
+		"iovSettings":  req.IovPolicySettings,
+	}).Info("ModifyNIC request")
+
+	if req.ContainerID == "" || req.EndpointName == "" || req.NicID == "" || req.IovPolicySettings == nil {
+		return nil, status.Error(codes.InvalidArgument, "received empty field in request")
+	}
+	if client, ok := containerIDToShim[req.ContainerID]; ok {
+		caIOVSettings := &computeagent.IovEndpointPolicyInternalSetting{
+			IovOffloadWeight:    req.IovPolicySettings.IovOffloadWeight,
+			QueuePairsRequested: req.IovPolicySettings.QueuePairsRequested,
+			InterruptModeration: req.IovPolicySettings.InterruptModeration,
+		}
+		caReq := &computeagent.ModifyNICInternalRequest{
+			NicID:             req.NicID,
+			EndpointName:      req.EndpointName,
+			IovPolicySettings: caIOVSettings,
+		}
+
+		hcnIOVSettings := &hcn.IovPolicySetting{
+			IovOffloadWeight:    req.IovPolicySettings.IovOffloadWeight,
+			QueuePairsRequested: req.IovPolicySettings.QueuePairsRequested,
+			InterruptModeration: req.IovPolicySettings.InterruptModeration,
+		}
+		rawJSON, err := json.Marshal(hcnIOVSettings)
+		if err != nil {
+			return nil, err
+		}
+
+		iovPolicy := hcn.EndpointPolicy{
+			Type:     hcn.IOV,
+			Settings: rawJSON,
+		}
+		policies := []hcn.EndpointPolicy{iovPolicy}
+
+		ep, err := hcn.GetEndpointByName(req.EndpointName)
+		if err != nil {
+			if _, ok := err.(hcn.EndpointNotFoundError); ok {
+				return nil, status.Errorf(codes.NotFound, "no endpoint with name `%s` found", req.EndpointName)
+			}
+			return nil, fmt.Errorf("failed to get endpoint with name `%s`: %s", req.EndpointName, err)
+		}
+
+		// To turn off iov offload on an endpoint, we need to first call into HCS to change the
+		// offload weight and then call into HNS to revoke the policy.
+		//
+		// To turn on iov offload, the reverse order is used.
+		if req.IovPolicySettings.IovOffloadWeight == 0 {
+			if _, err := client.ModifyNIC(ctx, caReq); err != nil {
+				return nil, err
+			}
+			if err := modifyEndpoint(ctx, ep.Id, policies, hcn.RequestTypeUpdate); err != nil {
+				return nil, errors.Wrap(err, "failed to modify network adapter")
+			}
+			if err := modifyEndpoint(ctx, ep.Id, policies, hcn.RequestTypeRemove); err != nil {
+				return nil, errors.Wrap(err, "failed to modify network adapter")
+			}
+		} else {
+			if err := modifyEndpoint(ctx, ep.Id, policies, hcn.RequestTypeUpdate); err != nil {
+				return nil, errors.Wrap(err, "failed to modify network adapter")
+			}
+			if _, err := client.ModifyNIC(ctx, caReq); err != nil {
+				return nil, err
+			}
+		}
+
+		return &ncproxygrpc.ModifyNICResponse{}, nil
 	}
 	return nil, status.Errorf(codes.FailedPrecondition, "No shim registered for namespace `%s`", req.ContainerID)
 }
@@ -167,6 +243,43 @@ func (s *grpcService) CreateNetwork(ctx context.Context, req *ncproxygrpc.Create
 	}, nil
 }
 
+func constructEndpointPolicies(req *ncproxygrpc.CreateEndpointRequest) (*[]hcn.EndpointPolicy, error) {
+	policies := []hcn.EndpointPolicy{}
+	if req.IovPolicySettings != nil {
+		iovSettings := hcn.IovPolicySetting{
+			IovOffloadWeight:    req.IovPolicySettings.IovOffloadWeight,
+			QueuePairsRequested: req.IovPolicySettings.QueuePairsRequested,
+			InterruptModeration: req.IovPolicySettings.InterruptModeration,
+		}
+		iovJSON, err := json.Marshal(iovSettings)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to marshal IovPolicySettings")
+		}
+		policy := hcn.EndpointPolicy{
+			Type:     hcn.IOV,
+			Settings: iovJSON,
+		}
+		policies = append(policies, policy)
+	}
+
+	if req.PortnamePolicySetting != nil {
+		portPolicy := hcn.PortnameEndpointPolicySetting{
+			Name: req.PortnamePolicySetting.PortName,
+		}
+		portPolicyJSON, err := json.Marshal(portPolicy)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to marshal portname")
+		}
+		policy := hcn.EndpointPolicy{
+			Type:     hcn.PortName,
+			Settings: portPolicyJSON,
+		}
+		policies = append(policies, policy)
+	}
+
+	return &policies, nil
+}
+
 func (s *grpcService) CreateEndpoint(ctx context.Context, req *ncproxygrpc.CreateEndpointRequest) (*ncproxygrpc.CreateEndpointResponse, error) {
 	log.G(ctx).WithFields(logrus.Fields{
 		"endpointName": req.Name,
@@ -198,22 +311,9 @@ func (s *grpcService) CreateEndpoint(ctx context.Context, req *ncproxygrpc.Creat
 		PrefixLength: uint8(prefixLen),
 	}
 
-	// Construct the portname policy we'll be setting on the endpoint.
-	var portPolicy hcn.PortnameEndpointPolicySetting
-	if req.PortnamePolicySetting != nil {
-		portPolicy = hcn.PortnameEndpointPolicySetting{
-			Name: req.PortnamePolicySetting.PortName,
-		}
-	}
-	portPolicyJSON, err := json.Marshal(portPolicy)
+	policies, err := constructEndpointPolicies(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal portname")
-	}
-
-	// Construct endpoint policy
-	epPolicy := hcn.EndpointPolicy{
-		Type:     hcn.EndpointPolicyType(req.PolicyType.String()),
-		Settings: portPolicyJSON,
+		return nil, errors.Wrap(err, "failed to construct endpoint policies")
 	}
 
 	endpoint := &hcn.HostComputeEndpoint{
@@ -221,7 +321,7 @@ func (s *grpcService) CreateEndpoint(ctx context.Context, req *ncproxygrpc.Creat
 		HostComputeNetwork: network.Id,
 		MacAddress:         req.Macaddress,
 		IpConfigurations:   []hcn.IpConfig{ipConfig},
-		Policies:           []hcn.EndpointPolicy{epPolicy},
+		Policies:           *policies,
 		SchemaVersion: hcn.SchemaVersion{
 			Major: 2,
 			Minor: 0,
@@ -456,4 +556,25 @@ func (s *ttrpcService) ConfigureNetworking(ctx context.Context, req *ncproxyttrp
 		return nil, err
 	}
 	return &ncproxyttrpc.ConfigureNetworkingInternalResponse{}, nil
+}
+
+func modifyEndpoint(ctx context.Context, id string, policies []hcn.EndpointPolicy, requestType hcn.RequestType) error {
+	endpointRequest := hcn.PolicyEndpointRequest{
+		Policies: policies,
+	}
+
+	settingsJSON, err := json.Marshal(endpointRequest)
+	if err != nil {
+		return err
+	}
+
+	requestMessage := &hcn.ModifyEndpointSettingRequest{
+		ResourceType: hcn.EndpointResourceTypePolicy,
+		RequestType:  requestType,
+		Settings:     settingsJSON,
+	}
+
+	log.G(ctx).WithField("request", requestMessage).Info("sending HcnModifyEndpoint request")
+
+	return hcn.ModifyEndpointSettings(id, requestMessage)
 }
