@@ -23,6 +23,8 @@ const (
 										is an expected race and can be ignored.`
 )
 
+var noExecOutputErr = errors.New("failed to get any pipe output")
+
 // createPnPInstallDriverCommand creates a pnputil command to add and install drivers
 // present in `driverUVMPath` and all subdirectories.
 func createPnPInstallDriverCommand(driverUVMPath string) []string {
@@ -57,6 +59,47 @@ func execPnPInstallDriver(ctx context.Context, vm *uvm.UtilityVM, driverDir stri
 			"driver":        driverDir,
 			"error":         pnputilNoMoreItemsErrorMessage,
 		}).Warn("expected version of driver may not have been installed")
+	}
+
+	log.G(ctx).WithField("added drivers", driverDir).Debug("installed drivers")
+	return nil
+}
+
+func execModprobeInstallDriver(ctx context.Context, vm *uvm.UtilityVM, driverDir string) error {
+	p, l, err := cmd.CreateNamedPipeListener()
+	if err != nil {
+		return err
+	}
+	defer l.Close()
+
+	var pipeResults []string
+	errChan := make(chan error)
+
+	go readCsPipeOutput(l, errChan, &pipeResults)
+
+	args := []string{
+		"/bin/installdrivers",
+		driverDir,
+	}
+	req := &shimdiag.ExecProcessRequest{
+		Args:   args,
+		Stderr: p,
+	}
+
+	// TODO katiewasnothere: check if noExecOutputErr should be checked here
+	exitCode, err := cmd.ExecInUvm(ctx, vm, req)
+	if err != nil {
+		return errors.Wrapf(err, "failed to install driver %s in uvm with exit code %d", driverDir, exitCode)
+	}
+
+	// wait to finish parsing stdout results
+	select {
+	case err := <-errChan:
+		if err != nil {
+			return err
+		}
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 
 	log.G(ctx).WithField("added drivers", driverDir).Debug("installed drivers")

@@ -85,7 +85,9 @@ func (ca *computeAgent) AssignVF(ctx context.Context, req *computeagent.AssignVF
 	if req.DeviceID == "" {
 		return nil, status.Error(codes.InvalidArgument, "received empty field in request")
 	}
+
 	// TODO katiewasnothere: add in module drivers!!!
+	//TODO katiewasnothere: handle windows too
 	dev, err := ca.uvm.AssignDevice(ctx, req.DeviceID, uint16(req.VirtualFunctionIndex))
 	if err != nil {
 		return nil, err

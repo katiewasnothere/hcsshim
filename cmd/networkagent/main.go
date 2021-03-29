@@ -52,7 +52,11 @@ func (s *service) configureIB(ctx context.Context, containerID, namespaceID stri
 	// - install drivers based on the machine type
 	// 		- run modprobe on driver names
 
-	hostDeviceID := "PCI\\VEN_15B3&DEV_101B&SUBSYS_000715B3&REV_00\\8&2D455990&0&000000200009"
+	// TODO katiewasnothere: hardcoded temporarily
+	hostDeviceID := "PCI\\VEN_15B3&DEV_101B&SUBSYS_000715B3&REV_00\\8&CDB75E6&0&008000400009"
+
+	log.G(ctx).WithField("id", hostDeviceID).Info("configureIB device to add")
+
 	var hostDeviceVFIndex uint32 = 0
 
 	// call to configure IB VF
@@ -103,7 +107,6 @@ func (s *service) configureIB(ctx context.Context, containerID, namespaceID stri
 	}
 
 	log.G(ctx).WithField("resp", assignResp).Info("added nic vf")
-
 	// - ccall to add adapter to LCOW
 	// 		- relies on fix to opengcs
 	// 		- should this call also handle running ifconfig and ip link to configure?

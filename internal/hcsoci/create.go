@@ -291,6 +291,18 @@ func CreateContainer(ctx context.Context, createOptions *CreateOptions) (_ cow.C
 	}
 	isSandbox := ct == oci.KubernetesContainerTypeSandbox
 
+	// install kernel drivers if necessary.
+	// do this before network setup in case any of the drivers requested are
+	// network drivers
+	if coi.HostingSystem != nil {
+		// setup pod kernel drivers
+		driverClosers, err := installPodDrivers(ctx, coi.HostingSystem, coi.Spec.Annotations)
+		if err != nil {
+			return nil, r, err
+		}
+		r.Add(driverClosers...)
+	}
+
 	// Create a network namespace if necessary.
 	if coi.Spec.Windows != nil &&
 		coi.Spec.Windows.Network != nil &&

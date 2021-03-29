@@ -263,12 +263,18 @@ func (c *Cmd) Wait() error {
 	if waitErr != nil && c.Log != nil {
 		c.Log.WithError(waitErr).Warn("process wait failed")
 	}
+
+	c.Log.Info("process wait done")
+
 	state := &ExitState{}
 	code, exitErr := c.Process.ExitCode()
 	if exitErr == nil {
 		state.exited = true
 		state.code = code
 	}
+
+	c.Log.Info("process exit state retreived")
+
 	// Terminate the IO if the copy does not complete in the requested time.
 	if c.CopyAfterExitTimeout != 0 {
 		go func() {
@@ -289,8 +295,14 @@ func (c *Cmd) Wait() error {
 	if ioErr == nil {
 		ioErr, _ = c.stdinErr.Load().(error)
 	}
+
+	c.Log.Info("iogrp wait completed")
+
 	close(c.allDoneCh)
 	c.Process.Close()
+
+	c.Log.Info("closed the process")
+
 	c.ExitState = state
 	if exitErr != nil {
 		return exitErr

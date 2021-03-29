@@ -168,6 +168,8 @@ func createPod(ctx context.Context, events publisher, req *task.CreateTaskReques
 			nsid = s.Windows.Network.NetworkNamespace
 		}
 
+		// TODO katiewasnothere: add code for driver installation
+
 		if nsid != "" {
 			if err := parent.ConfigureNetworking(ctx, nsid); err != nil {
 				return nil, errors.Wrapf(err, "failed to setup networking for pod %q", req.ID)

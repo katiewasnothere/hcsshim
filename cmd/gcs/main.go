@@ -84,7 +84,7 @@ func readMemoryEvents(startTime time.Time, efdFile *os.File, cgName string, thre
 func main() {
 	startTime := time.Now()
 	logLevel := flag.String("loglevel", "debug", "Logging Level: debug, info, warning, error, fatal, panic.")
-	kmsgLogLevel := flag.Uint("kmsgLogLevel", uint(kmsg.Warning), "Log all kmsg entries with a priority less than or equal to the supplied level.")
+	kmsgLogLevel := flag.Uint("kmsgLogLevel", uint(kmsg.Info), "Log all kmsg entries with a priority less than or equal to the supplied level.")
 	logFile := flag.String("logfile", "", "Logging Target: An optional file name/path. Omit for console output.")
 	logFormat := flag.String("log-format", "text", "Logging Format: text or json")
 	useInOutErr := flag.Bool("use-inouterr", false, "If true use stdin/stdout for bridge communication and stderr for logging")

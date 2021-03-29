@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Microsoft/hcsshim/internal/cmd"
+	"github.com/Microsoft/hcsshim/internal/guest/uevent"
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/shimdiag"
 	"github.com/Microsoft/hcsshim/internal/uvm"
@@ -31,7 +32,7 @@ import (
 // this function, `vpci` is released and nil is returned for that value.
 //
 // Returns a slice of strings representing the resulting location path(s) for the specified device.
-func AddDevice(ctx context.Context, vm *uvm.UtilityVM, idType, deviceID, deviceUtilPath string) (vpci *uvm.VPCIDevice, locationPaths []string, err error) {
+func AddDevice(ctx context.Context, vm *uvm.UtilityVM, idType, deviceID string, deviceIndex uint16, deviceUtilPath string) (vpci *uvm.VPCIDevice, locationPaths []string, err error) {
 	defer func() {
 		if err != nil && vpci != nil {
 			// best effort clean up allocated resource on failure
@@ -42,7 +43,7 @@ func AddDevice(ctx context.Context, vm *uvm.UtilityVM, idType, deviceID, deviceU
 		}
 	}()
 	if idType == uvm.VPCIDeviceIDType || idType == uvm.VPCIDeviceIDTypeLegacy {
-		vpci, err = vm.AssignDevice(ctx, deviceID, 0)
+		vpci, err = vm.AssignDevice(ctx, deviceID, deviceIndex)
 		if err != nil {
 			return vpci, nil, errors.Wrapf(err, "failed to assign device %s of type %s to pod %s", deviceID, idType, vm.ID())
 		}
@@ -130,10 +131,115 @@ func readCsPipeOutput(l net.Listener, errChan chan<- error, result *[]string) {
 	elements := strings.Split(elementsAsString, ",")
 	*result = append(*result, elements...)
 
+	log.G(context.Background()).WithField("line", elements).Info("got a new line from the pipe")
+
 	if len(*result) == 0 {
 		errChan <- errors.Wrapf(err, "failed to get any pipe output")
 		return
 	}
 
 	errChan <- nil
+}
+
+// TODO katiewasnothere: are we sure that we get all events before returning? is there a race?
+
+// Returns a slice of strings representing the resulting location path(s) for the specified device.
+func AddDeviceLCOW(ctx context.Context, vm *uvm.UtilityVM, deviceID string, deviceIndex uint16) (vpci *uvm.VPCIDevice, err error) {
+	defer func() {
+		if err != nil {
+			log.G(ctx).WithError(err).Error("failed to add device to LCOW")
+
+		}
+		if err != nil && err != NoExecOutputErr && vpci != nil {
+			// best effort clean up allocated resource on failure
+			if releaseErr := vpci.Release(ctx); releaseErr != nil {
+				log.G(ctx).WithError(releaseErr).Error("failed to release container resource")
+			}
+			vpci = nil
+		}
+	}()
+
+	p, l, err := createNamedPipeListener()
+	if err != nil {
+		return nil, err
+	}
+	defer l.Close()
+
+	args := []string{"/bin/uevent"}
+	req := &shimdiag.ExecProcessRequest{
+		Args:   args,
+		Stdout: p,
+	}
+
+	results := []uevent.Message{}
+	errChan := make(chan error)
+
+	go getUeventOutput(ctx, l, errChan, &results)
+
+	cmd, np, err := cmd.ConstructUVMCmd(ctx, vm, req)
+	if err != nil {
+		return nil, err
+	}
+	defer np.Close(ctx)
+
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	vpci, err = vm.AssignDevice(ctx, deviceID, deviceIndex)
+	if err != nil {
+		return vpci, errors.Wrapf(err, "failed to assign device %s to pod %s", deviceID, vm.ID())
+	}
+
+	// when we've returned from assigning the device, we know that the device has been created in the UVM
+	if _, err = cmd.Process.Kill(ctx); err != nil {
+		return vpci, err
+	}
+
+	if err = cmd.Process.Close(); err != nil {
+		return vpci, err
+	}
+
+	np.Close(ctx)
+	l.Close()
+	select {
+	case <-ctx.Done():
+		return vpci, ctx.Err()
+	case err = <-errChan:
+		if err != nil {
+			return vpci, errors.Wrap(err, "error from uevent reader routine")
+		}
+	}
+
+	if err = cmd.Wait(); err != nil {
+		return vpci, err
+	}
+
+	// todo katiewasnothere: deal with results
+	// add dev devices to spec
+
+	return vpci, nil
+}
+
+func AddDeviceLCOWPlain(ctx context.Context, vm *uvm.UtilityVM, deviceID string, deviceIndex uint16) (vpci *uvm.VPCIDevice, err error) {
+	defer func() {
+		if err != nil {
+			log.G(ctx).WithError(err).Error("failed to add device to LCOW")
+
+		}
+		if err != nil && err != NoExecOutputErr && vpci != nil {
+			// best effort clean up allocated resource on failure
+			if releaseErr := vpci.Release(ctx); releaseErr != nil {
+				log.G(ctx).WithError(releaseErr).Error("failed to release container resource")
+			}
+			vpci = nil
+		}
+	}()
+
+	vpci, err = vm.AssignDevice(ctx, deviceID, deviceIndex)
+	if err != nil {
+		return vpci, errors.Wrapf(err, "failed to assign device %s to pod %s", deviceID, vm.ID())
+	}
+
+	return vpci, nil
 }

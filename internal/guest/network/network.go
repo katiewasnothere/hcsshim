@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -125,6 +126,18 @@ func InstanceIDToName(ctx context.Context, id string, isVPCIDevice bool) (_ stri
 			return "", err
 		}
 		// wait for "net"
+
+		netDevicePath, err = storage.WaitForFileMatchingPattern(ctx, pciDevicePath)
+		if err != nil {
+			return "", err
+		}
+
+		cmd := exec.Command("lsmod")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return "", err
+		}
+		log.G(ctx).WithField("output", string(out)).Info("lsmod output")
 
 		pciNetDirPattern := filepath.Join(pciDevicePath, "net")
 		netDevicePath, err = storage.WaitForFileMatchingPattern(ctx, pciNetDirPattern)

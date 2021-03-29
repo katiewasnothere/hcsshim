@@ -337,10 +337,12 @@ func (brdg *bridge) recvLoop() error {
 					}).Error("bridge RPC error record")
 				}
 			}
+			brdg.log.Info("about to complete the call")
 			call.complete(err)
 			if err != nil {
 				return err
 			}
+			brdg.log.Info("completed the call")
 
 		case msgTypeNotify:
 			if typ != notifyContainer|msgTypeNotify {
