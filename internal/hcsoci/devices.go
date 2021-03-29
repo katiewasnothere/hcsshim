@@ -97,7 +97,7 @@ func handleAssignedDevicesWindows(ctx context.Context, vm *uvm.UtilityVM, annota
 		return nil, closers, err
 	}
 	for _, d := range drivers {
-		driverCloser, err := devices.InstallWindowsDriver(ctx, vm, d)
+		driverCloser, err := devices.InstallKernelDriver(ctx, vm, d)
 		if err != nil {
 			return nil, closers, err
 		}
@@ -105,4 +105,59 @@ func handleAssignedDevicesWindows(ctx context.Context, vm *uvm.UtilityVM, annota
 	}
 
 	return resultDevs, closers, nil
+}
+
+func handleAssignedDevicesLCOW(ctx context.Context, vm *uvm.UtilityVM, annotations map[string]string, specDevs *[]specs.WindowsDevice, specProcess *specs.Process) (closers []resources.ResourceCloser, err error) {
+	defer func() {
+		if err != nil {
+			// best effort clean up allocated resources on failure
+			for _, r := range closers {
+				if releaseErr := r.Release(ctx); releaseErr != nil {
+					log.G(ctx).WithError(releaseErr).Error("failed to release container resource")
+				}
+			}
+			closers = nil
+		}
+	}()
+
+	// install drivers first so when devices are assigned they're setup correctly
+	// get the spec specified kernel drivers and install them on the UVM
+	drivers, err := getAssignedDeviceKernelDrivers(annotations)
+	if err != nil {
+		return closers, err
+	}
+	for _, d := range drivers {
+		driverCloser, err := devices.InstallKernelDriver(ctx, vm, d)
+		if err != nil {
+			return closers, err
+		}
+		closers = append(closers, driverCloser)
+
+		// add bin path for drivers to spec process path
+		/*driverBinPaths = append(driverBinPaths, uvmPath+"/bin")
+		driverBinPaths = append(driverBinPaths, uvmPath+"/usr/bin")
+		driverLibPaths = append(driverLibPaths, uvmPath+"/lib")
+		driverLibPaths = append(driverLibPaths, uvmPath+"/usr/lib")*/
+
+	}
+
+	// assign device into UVM and create corresponding spec windows devices
+	for i, d := range *specDevs {
+		if d.IDType == uvm.VPCIDeviceIDType || d.IDType == uvm.VPCIDeviceIDTypeLegacy || d.IDType == uvm.GPUDeviceIDType {
+			vpci, err := devices.AddDeviceLCOW(ctx, vm, d.ID)
+			if err != nil && err != devices.NoExecOutputErr {
+				return closers, err
+			}
+
+			closers = append(closers, vpci)
+			// update device ID on the spec to the assigned device's resulting vmbus guid so gcs knows which devices to
+			// map into the container
+			(*specDevs)[i].ID = vpci.VMBusGUID
+		}
+	}
+
+	/*devices.UpdateEnvVariableWithPaths(&specProcess.Env, "PATH=", driverBinPaths)
+	devices.UpdateEnvVariableWithPaths(&specProcess.Env, "LD_LIBRARY_PATH=", driverLibPaths)*/
+
+	return closers, nil
 }

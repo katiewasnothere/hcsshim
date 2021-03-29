@@ -37,6 +37,49 @@ func ExecInUvm(ctx context.Context, vm *uvm.UtilityVM, req *shimdiag.ExecProcess
 	return cmd.ExitState.ExitCode(), err
 }
 
+// ExecInUvm is a helper function used to execute commands specified in `req` inside the given UVM.
+func ExecInUvm2(ctx context.Context, vm *uvm.UtilityVM, req *shimdiag.ExecProcessRequest) (int, error) {
+	cmd, np, err := ConstructUVMCmd(ctx, vm, req)
+	if err != nil {
+		return 0, err
+	}
+	defer np.Close(ctx)
+
+	err = cmd.Run()
+	return cmd.ExitState.ExitCode(), err
+}
+
+func ConstructUVMCmd(ctx context.Context, vm *uvm.UtilityVM, req *shimdiag.ExecProcessRequest) (*Cmd, UpstreamIO, error) {
+	if len(req.Args) == 0 {
+		return nil, nil, errors.New("missing command")
+	}
+	log.G(ctx).Info("constructing cmd")
+
+	np, err := NewNpipeIO(ctx, req.Stdin, req.Stdout, req.Stderr, req.Terminal)
+	if err != nil {
+		return nil, nil, err
+	}
+	log.G(ctx).Info("new npipeio made")
+
+	cmd := CommandContext(ctx, vm, req.Args[0], req.Args[1:]...)
+	if req.Workdir != "" {
+		cmd.Spec.Cwd = req.Workdir
+	}
+	log.G(ctx).Info("cmd context made")
+
+	if vm.OS() == "windows" {
+		cmd.Spec.User.Username = `NT AUTHORITY\SYSTEM`
+	}
+	cmd.Spec.Terminal = req.Terminal
+	cmd.Stdin = np.Stdin()
+	cmd.Stdout = np.Stdout()
+	cmd.Stderr = np.Stderr()
+	cmd.Log = log.G(ctx).WithField(logfields.UVMID, vm.ID())
+	log.G(ctx).Info("finished constructing")
+
+	return cmd, np, nil
+}
+
 // ExecInShimHost is a helper function used to execute commands specified in `req` in the shim's
 // hosting system.
 func ExecInShimHost(ctx context.Context, req *shimdiag.ExecProcessRequest) (int, error) {

@@ -24,8 +24,8 @@ import (
 // getGPUVHDPath gets the gpu vhd path from the shim options or uses the default if no
 // shim option is set. Right now we only support Nvidia gpus, so this will default to
 // a gpu vhd with nvidia files
-func getGPUVHDPath(coi *createOptionsInternal) (string, error) {
-	gpuVHDPath, ok := coi.Spec.Annotations[oci.AnnotationGPUVHDPath]
+func getGPUVHDPath(annotations map[string]string) (string, error) {
+	gpuVHDPath, ok := annotations[oci.AnnotationGPUVHDPath]
 	if !ok || gpuVHDPath == "" {
 		return "", fmt.Errorf("no gpu vhd specified %s", gpuVHDPath)
 	}
@@ -148,28 +148,13 @@ func allocateLinuxResources(ctx context.Context, coi *createOptionsInternal, r *
 		}
 	}
 
-	addGPUVHD := false
-	for i, d := range coi.Spec.Windows.Devices {
-		switch d.IDType {
-		case uvm.GPUDeviceIDType:
-			addGPUVHD = true
-			vpci, err := coi.HostingSystem.AssignDevice(ctx, d.ID)
-			if err != nil {
-				return errors.Wrapf(err, "failed to assign gpu device %s to pod %s", d.ID, coi.HostingSystem.ID())
-			}
-			r.Add(vpci)
-			// update device ID on the spec to the assigned device's resulting vmbus guid so gcs knows which devices to
-			// map into the container
-			coi.Spec.Windows.Devices[i].ID = vpci.VMBusGUID
-		default:
-			return fmt.Errorf("specified device %s has unsupported type %s", d.ID, d.IDType)
-		}
-	}
+	log.G(ctx).WithField("devices", coi.Spec.Windows.Devices).Info("about to handle devices")
+	if len(coi.Spec.Windows.Devices) != 0 {
+		log.G(ctx).WithField("devices", coi.Spec.Windows.Devices).Info("there are devices to handle")
 
-	if addGPUVHD {
-		gpuSupportVhdPath, err := getGPUVHDPath(coi)
+		closers, err := handleAssignedDevicesLCOW(ctx, coi.HostingSystem, coi.Spec.Annotations, &coi.Spec.Windows.Devices, coi.Spec.Process)
 		if err != nil {
-			return errors.Wrapf(err, "failed to add gpu vhd to %v", coi.HostingSystem.ID())
+			return err
 		}
 		// use lcowNvidiaMountPath since we only support nvidia gpus right now
 		// must use scsi here since DDA'ing a hyper-v pci device is not supported on VMs that have ANY virtual memory
@@ -181,5 +166,6 @@ func allocateLinuxResources(ctx context.Context, coi *createOptionsInternal, r *
 		}
 		r.Add(scsiMount)
 	}
+
 	return nil
 }

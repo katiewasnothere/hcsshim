@@ -21,6 +21,7 @@ const (
 	pnputilNoMoreItemsErrorMessage = `driver not ranked higher than existing driver in UVM.
 										if drivers were not previously present in the UVM, this
 										is an expected race and can be ignored.`
+	noExecOutputErr = errors.New("failed to get any pipe output")
 )
 
 // createPnPInstallDriverCommand creates a pnputil command to add and install drivers
@@ -57,6 +58,25 @@ func execPnPInstallDriver(ctx context.Context, vm *uvm.UtilityVM, driverDir stri
 			"driver":        driverDir,
 			"error":         pnputilNoMoreItemsErrorMessage,
 		}).Warn("expected version of driver may not have been installed")
+	}
+
+	log.G(ctx).WithField("added drivers", driverDir).Debug("installed drivers")
+	return nil
+}
+
+func execModprobeInstallDriver(ctx context.Context, vm *uvm.UtilityVM, driverDir string) error {
+	args := []string{
+		"/bin/installdrivers",
+		driverDir,
+	}
+	req := &shimdiag.ExecProcessRequest{
+		Args: args,
+	}
+
+	// TODO katiewasnothere: check if noExecOutputErr should be checked here
+	exitCode, err := cmd.ExecInUvm(ctx, vm, req)
+	if err != nil {
+		return errors.Wrapf(err, "failed to install driver %s in uvm with exit code %d", driverDir, exitCode)
 	}
 
 	log.G(ctx).WithField("added drivers", driverDir).Debug("installed drivers")
