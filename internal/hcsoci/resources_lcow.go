@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/Microsoft/hcsshim/internal/layers"
@@ -153,9 +154,50 @@ func allocateLinuxResources(ctx context.Context, coi *createOptionsInternal, r *
 		switch d.IDType {
 		case uvm.GPUDeviceIDType:
 			addGPUVHD = true
-			vpci, err := coi.HostingSystem.AssignDevice(ctx, d.ID)
+			vpci, err := coi.HostingSystem.AssignDevice(ctx, d.ID, 0)
 			if err != nil {
 				return errors.Wrapf(err, "failed to assign gpu device %s to pod %s", d.ID, coi.HostingSystem.ID())
+			}
+			r.Add(vpci)
+			// update device ID on the spec to the assigned device's resulting vmbus guid so gcs knows which devices to
+			// map into the container
+			coi.Spec.Windows.Devices[i].ID = vpci.VMBusGUID
+		// TODO katiewasnothere
+		case uvm.VPCIDeviceIDType:
+			// see if there's an index given to us
+			base := filepath.Base(d.ID)
+			index, err := strconv.ParseUint(base, 10, 16)
+			if err != nil {
+				// this isn't necessarily an error, just pass the device ID in with index 0
+				index = 0
+			} else {
+				// remove index from the end
+				d.ID = filepath.Dir(d.ID)
+			}
+
+			vpci, err := coi.HostingSystem.AssignDevice(ctx, d.ID, uint16(index))
+			if err != nil {
+				return errors.Wrapf(err, "failed to assign vpci device %s to pod %s", d.ID, coi.HostingSystem.ID())
+			}
+			r.Add(vpci)
+			// update device ID on the spec to the assigned device's resulting vmbus guid so gcs knows which devices to
+			// map into the container
+			coi.Spec.Windows.Devices[i].ID = vpci.VMBusGUID
+		case uvm.VPCIDeviceIDTypeLegacy:
+			// see if there's an index given to us
+			base := filepath.Base(d.ID)
+			index, err := strconv.ParseUint(base, 10, 16)
+			if err != nil {
+				// this isn't necessarily an error, just pass the device ID in with index 0
+				index = 0
+			} else {
+				// remove index from the end
+				d.ID = filepath.Dir(d.ID)
+			}
+
+			vpci, err := coi.HostingSystem.AssignDevice(ctx, d.ID, uint16(index))
+			if err != nil {
+				return errors.Wrapf(err, "failed to assign vpci device %s to pod %s", d.ID, coi.HostingSystem.ID())
 			}
 			r.Add(vpci)
 			// update device ID on the spec to the assigned device's resulting vmbus guid so gcs knows which devices to

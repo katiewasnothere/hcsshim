@@ -1,0 +1,25 @@
+{
+    "extensions": {
+                "device_class_name": "Catapult", 
+                "interface_class": [
+                    "<GUID>"
+                ],
+                "namespace": {
+                    "obj": [
+                        {
+                            "symlinks": [
+                                {
+                                    "source_directory_name": "Device",
+                                    "source_name": "CatapultPCIControl",
+                                    "target_container_path": "\\Device\\CatapultPCIControl",
+                                    "namespace_scope": "global"
+                                }
+                            ]
+                        }
+  
+                    ],
+                "require_uvm_driver_store": "false",
+            }
+        }
+    }
+}

@@ -15,7 +15,64 @@ service NetworkConfigProxy {
     rpc GetNetwork(GetNetworkRequest) returns (GetNetworkResponse) {}
     rpc GetEndpoints(GetEndpointsRequest) returns (GetEndpointsResponse) {}
     rpc GetNetworks(GetNetworksRequest) returns (GetNetworksResponse) {}
+    rpc AssignVF(AssignVFRequest) returns (AssignVFResponse) {}
+    rpc RemoveVF(RemoveVFRequest) returns (RemoveVFResponse) {}
+    rpc AddNICVirtualFunction (AddNICVirtualFunctionRequest) returns (AddNICVirtualFunctionResponse) {}
+    rpc DeleteNICVirtualFunction (DeleteNICVirtualFunctionRequest) returns (DeleteNICVirtualFunctionResponse) {}
 }
+
+message DeleteNICVirtualFunctionRequest {
+    // TODO katiewasnothere: this should make call to configure interface
+    // DO we even need this or care about them being separate?
+    string namespace_id = 1;
+    string container_id = 2;
+    string device_id = 3;
+}
+
+message DeleteNICVirtualFunctionResponse {}
+
+message AddNICVirtualFunctionRequest {
+    // TODO katiewasnothere: this should make call to configure interface
+    // DO we even need this or care about them being separate?
+    string namespace_id = 1;
+    string container_id = 2;
+    string device_id = 3;
+    string macaddress = 4;
+    string ipaddress = 5;
+    uint32 ipaddress_prefixlength = 6;
+    string gateway = 7;
+}
+
+message AddNICVirtualFunctionResponse {}
+
+message AssignVFRequest {
+    string container_id = 1;
+    string device_id = 2;
+    uint32 virtual_function_index = 3;
+    enum DeviceType 
+    {
+        Infiniband = 0;
+    }
+    DeviceType device_type = 4;
+}
+
+message AssignVFResponse {
+    string id = 1;
+}
+
+message RemoveVFRequest {
+    // TODO katiewasnothere: don't know what fields we need
+    string container_id = 1;
+    string device_id = 2;
+    uint32 virtual_function_index = 3;
+    enum DeviceType 
+    {
+        Infiniband = 0;
+    }
+    DeviceType device_type = 4;
+}
+
+message RemoveVFResponse {} 
 
 message AddNICRequest {
     string container_id = 1;
@@ -46,6 +103,7 @@ message CreateNetworkRequest {
     enum NetworkMode
     {
         Transparent = 0;
+        Infiniband = 1;
     }
 
     enum IpamType 

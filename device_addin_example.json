@@ -1,0 +1,62 @@
+{
+    "OS": {
+        "windows":{
+            "windows_devices": [
+                {
+                    "device_type": "infiniband",
+                    "drivers": {
+                        "kernel_mode": "C:\\path\\to\\drivers",
+                        "user_mode": "C:\\path\to\\user\\mode"
+                    },
+                    "extensions": "C:\\path\\to\\ib\\extension"
+                },
+                {
+                    "device_type": "fpga",
+                    "drivers": {
+                        "kernel_mode": "C:\\path\\to\\catapult\\drivers",
+                        "user_mode": "C:\\path\to\\user\\mode"
+                    },
+                    "extensions": "C:\\path\\to\\catapult\\extension"
+                }
+            ]
+        },
+        "linux": {
+            "linux_device": [
+                { 
+                    "device_type": "infiniband",
+                    "drivers": {
+                        "kernel_drivers": "vhd://mellanox-modules.vhd", // TODO: comma separated list
+                        "usermode_drivers": "vhd://rdma-tools.vhd"
+                    }
+                },
+                {
+                    "device_type": "gpu",
+                    "drivers": {
+                        "kernel_drivers": "vhd://nvidiagpu.vhd", // TODO: comma separated list
+                    },
+                    "hooks": {
+                        "createruntime_hooks": [
+                            [
+                                "nvidia-container-cli", 
+                                "--debug=/tmp/debug/nvidia",
+                                "--load-kmods",
+                                "--no-pivot",
+                                "configure",
+                                "--utility",
+                                "--device=%s",
+                                "--no-cgroups",
+                                "--pid={{pid}}",
+                                "{{rootfspath}}"
+                            ]
+                        ],
+                        "startcontainer_hook": [
+                            [
+                                "ldconfig"
+                            ]
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+}

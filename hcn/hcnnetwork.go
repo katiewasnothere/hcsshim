@@ -56,6 +56,7 @@ type NetworkType string
 const (
 	NAT         NetworkType = "NAT"
 	Transparent NetworkType = "Transparent"
+	Infiniband  NetworkType = "Infiniband"
 	L2Bridge    NetworkType = "L2Bridge"
 	L2Tunnel    NetworkType = "L2Tunnel"
 	ICS         NetworkType = "ICS"

@@ -8,6 +8,63 @@ service ComputeAgent{
     rpc AddNIC(AddNICInternalRequest) returns (AddNICInternalResponse) {}
     rpc ModifyNIC(ModifyNICInternalRequest) returns (ModifyNICInternalResponse) {}
     rpc DeleteNIC(DeleteNICInternalRequest) returns (DeleteNICInternalResponse) {}
+    rpc AssignVF(AssignVFInternalRequest) returns (AssignVFInternalResponse) {}
+    rpc RemoveVF(RemoveVFInternalRequest) returns (RemoveVFInternalResponse) {}
+    rpc AddNICVirtualFunction(AddNICVirtualFunctionInternalRequest) returns (AddNICVirtualFunctionInternalResponse) {}
+    rpc DeleteNICVirtualFunction(DeleteNICVirtualFunctionInternalRequest) returns (DeleteNICVirtualFunctionInternalResponse) {}
+}
+
+message DeleteNICVirtualFunctionInternalRequest {
+    // TODO katiewasnothere: this should make call to configure interface
+    // DO we even need this or care about them being separate?
+    string namespace_id = 1;
+    string container_id = 2;
+    string device_id = 3;
+}
+
+message DeleteNICVirtualFunctionInternalResponse {}
+
+message AddNICVirtualFunctionInternalRequest {
+    // TODO katiewasnothere: this should make call to configure interface
+    // DO we even need this or care about them being separate?
+    string namespace_id = 1;
+    string container_id = 2;
+    string device_id = 3;
+    string macaddress = 4;
+    string ipaddress = 5;
+    uint32 ipaddress_prefixlength = 6;
+    string gateway = 7;
+}
+
+message AddNICVirtualFunctionInternalResponse {}
+
+message RemoveVFInternalRequest {
+    // TODO katiewasnothere: don't know what fields we need
+    string container_id = 1;
+    string device_id = 2;
+    uint32 virtual_function_index = 3;
+    enum DeviceType 
+    {
+        Infiniband = 0;
+    }
+    DeviceType device_type = 4;
+}
+
+message RemoveVFInternalResponse {} 
+
+message AssignVFInternalRequest {
+    string container_id = 1;
+    string device_id = 2;
+    uint32 virtual_function_index = 3;
+    enum DeviceType 
+    {
+        Infiniband = 0;
+    }
+    DeviceType device_type = 4;
+}
+
+message AssignVFInternalResponse {
+    string id = 1;
 }
 
 message AddNICInternalRequest {

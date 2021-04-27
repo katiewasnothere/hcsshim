@@ -64,7 +64,7 @@ func main() {
 
 	// If there's a node network service in the config, assign this to our global client.
 	if conf.NodeNetSvcAddr != "" {
-		log.G(ctx).Debugf("connecting to NodeNetworkService at address %s", conf.NodeNetSvcAddr)
+		log.G(ctx).Infof("connecting to NodeNetworkService at address %s", conf.NodeNetSvcAddr)
 
 		opts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithStatsHandler(&ocgrpc.ClientHandler{})}
 		if conf.Timeout > 0 {
@@ -78,7 +78,7 @@ func main() {
 			log.G(ctx).Fatalf("failed to connect to NodeNetworkService at address %s", conf.NodeNetSvcAddr)
 		}
 
-		log.G(ctx).Debugf("successfully connected to NodeNetworkService at address %s", conf.NodeNetSvcAddr)
+		log.G(ctx).Infof("successfully connected to NodeNetworkService at address %s", conf.NodeNetSvcAddr)
 
 		netSvcClient := nodenetsvc.NewNodeNetworkServiceClient(client)
 		nodeNetSvcClient = &nodeNetSvcConn{

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/Microsoft/go-winio"
 	"github.com/Microsoft/hcsshim/cmd/ncproxy/ncproxygrpc"
@@ -27,6 +28,124 @@ import (
 type grpcService struct{}
 
 var _ ncproxygrpc.NetworkConfigProxyServer = &grpcService{}
+
+/*
+   rpc AssignVF(AssignVFRequest) returns (AssignVFResponse) {}
+   rpc RemoveVF(RemoveVFRequest) returns (RemoveVFResponse) {}
+   rpc AddNICVirtualFunction (AddNICVirtualFunctionRequest) returns (AddNICVirtualFunctionResponse) {}
+   rpc DeleteNICVirtualFunction (DeleteNICVirtualFunctionRequest) returns (DeleteNICVirtualFunctionResponse) {}
+*/
+
+func (s *grpcService) AssignVF(ctx context.Context, req *ncproxygrpc.AssignVFRequest) (_ *ncproxygrpc.AssignVFResponse, err error) {
+	ctx, span := trace.StartSpan(ctx, "AssignVF")
+	defer span.End()
+	defer func() { oc.SetSpanStatus(span, err) }()
+
+	span.AddAttributes(
+		trace.StringAttribute("containerID", req.ContainerID))
+
+	if req.ContainerID == "" || req.DeviceID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "received empty field in request: %+v", req)
+	}
+
+	if client, ok := containerIDToShim[req.ContainerID]; ok {
+		caReq := &computeagent.AssignVFInternalRequest{
+			ContainerID:          req.ContainerID,
+			DeviceID:             req.DeviceID,
+			VirtualFunctionIndex: req.VirtualFunctionIndex,
+			DeviceType:           computeagent.AssignVFInternalRequest_DeviceType(req.DeviceType),
+		}
+		resp, err := client.AssignVF(ctx, caReq)
+		if err != nil {
+			return nil, err
+		}
+		return &ncproxygrpc.AssignVFResponse{ID: resp.ID}, nil
+	}
+	return nil, status.Errorf(codes.FailedPrecondition, "No shim registered for containerID `%s`", req.ContainerID)
+}
+
+func (s *grpcService) RemoveVF(ctx context.Context, req *ncproxygrpc.RemoveVFRequest) (_ *ncproxygrpc.RemoveVFResponse, err error) {
+	ctx, span := trace.StartSpan(ctx, "RemoveVF")
+	defer span.End()
+	defer func() { oc.SetSpanStatus(span, err) }()
+
+	span.AddAttributes(
+		trace.StringAttribute("containerID", req.ContainerID))
+
+	// TODO katiewasnothere: should I check any other fields
+	if req.ContainerID == "" || req.DeviceID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "received empty field in request: %+v", req)
+	}
+
+	if client, ok := containerIDToShim[req.ContainerID]; ok {
+		caReq := &computeagent.RemoveVFInternalRequest{
+			ContainerID:          req.ContainerID,
+			DeviceID:             req.DeviceID,
+			VirtualFunctionIndex: req.VirtualFunctionIndex,
+			DeviceType:           computeagent.RemoveVFInternalRequest_DeviceType(req.DeviceType),
+		}
+		if _, err := client.RemoveVF(ctx, caReq); err != nil {
+			return nil, err
+		}
+		return &ncproxygrpc.RemoveVFResponse{}, nil
+	}
+	return nil, status.Errorf(codes.FailedPrecondition, "No shim registered for containerID `%s`", req.ContainerID)
+}
+
+func (s *grpcService) AddNICVirtualFunction(ctx context.Context, req *ncproxygrpc.AddNICVirtualFunctionRequest) (_ *ncproxygrpc.AddNICVirtualFunctionResponse, err error) {
+	ctx, span := trace.StartSpan(ctx, "AddNICVirtualFunction")
+	defer span.End()
+	defer func() { oc.SetSpanStatus(span, err) }()
+
+	span.AddAttributes(
+		trace.StringAttribute("containerID", req.ContainerID))
+
+	if req.ContainerID == "" || req.NamespaceID == "" || req.DeviceID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "received empty field in request: %+v", req)
+	}
+	if client, ok := containerIDToShim[req.ContainerID]; ok {
+		caReq := &computeagent.AddNICVirtualFunctionInternalRequest{
+			NamespaceID:           req.NamespaceID,
+			ContainerID:           req.ContainerID,
+			DeviceID:              req.DeviceID,
+			Macaddress:            req.Macaddress,
+			Ipaddress:             req.Ipaddress,
+			IpaddressPrefixlength: req.IpaddressPrefixlength,
+			Gateway:               req.Gateway,
+		}
+		if _, err := client.AddNICVirtualFunction(ctx, caReq); err != nil {
+			return nil, err
+		}
+		return &ncproxygrpc.AddNICVirtualFunctionResponse{}, nil
+	}
+	return nil, status.Errorf(codes.FailedPrecondition, "No shim registered for containerID `%s`", req.ContainerID)
+}
+
+func (s *grpcService) DeleteNICVirtualFunction(ctx context.Context, req *ncproxygrpc.DeleteNICVirtualFunctionRequest) (_ *ncproxygrpc.DeleteNICVirtualFunctionResponse, err error) {
+	ctx, span := trace.StartSpan(ctx, "DeleteNICVirtualFunction")
+	defer span.End()
+	defer func() { oc.SetSpanStatus(span, err) }()
+
+	span.AddAttributes(
+		trace.StringAttribute("containerID", req.ContainerID))
+
+	if req.ContainerID == "" || req.NamespaceID == "" || req.DeviceID == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "received empty field in request: %+v", req)
+	}
+
+	if client, ok := containerIDToShim[req.ContainerID]; ok {
+		caReq := &computeagent.DeleteNICVirtualFunctionInternalRequest{
+			ContainerID: req.ContainerID,
+			NamespaceID: req.NamespaceID,
+			DeviceID:    req.DeviceID,
+		}
+		if _, err := client.DeleteNICVirtualFunction(ctx, caReq); err != nil {
+			return nil, err
+		}
+		return &ncproxygrpc.DeleteNICVirtualFunctionResponse{}, nil
+	}
+	return nil, status.Errorf(codes.FailedPrecondition, "No shim registered for containerID `%s`", req.ContainerID)
+}
 
 func (s *grpcService) AddNIC(ctx context.Context, req *ncproxygrpc.AddNICRequest) (_ *ncproxygrpc.AddNICResponse, err error) {
 	ctx, span := trace.StartSpan(ctx, "AddNIC")
@@ -573,7 +692,7 @@ func (s *ttrpcService) ConfigureNetworking(ctx context.Context, req *ncproxyttrp
 
 	span.AddAttributes(
 		trace.StringAttribute("containerID", req.ContainerID),
-		trace.StringAttribute("agentAddress", req.RequestType.String()))
+		trace.StringAttribute("requestType", req.RequestType.String()))
 
 	if req.ContainerID == "" {
 		return nil, status.Error(codes.InvalidArgument, "ContainerID is empty")
@@ -595,7 +714,10 @@ func (s *ttrpcService) ConfigureNetworking(ctx context.Context, req *ncproxyttrp
 		RequestType: nodenetsvc.RequestType(req.RequestType),
 	}
 
-	if _, err := nodeNetSvcClient.client.ConfigureNetworking(ctx, netsvcReq); err != nil {
+	log.G(ctx).WithField("netsvcReq", netsvcReq).Info("ncproxy ConfigureContainerNetworking")
+	newctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
+	defer cancel()
+	if _, err := nodeNetSvcClient.client.ConfigureNetworking(newctx, netsvcReq); err != nil {
 		return nil, err
 	}
 	return &ncproxyttrpc.ConfigureNetworkingInternalResponse{}, nil
