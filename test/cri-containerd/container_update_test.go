@@ -159,8 +159,8 @@ func Test_Container_UpdateResources_CPUShare_NotRunning(t *testing.T) {
 			name:             "WCOW_Process",
 			requiredFeatures: []string{featureWCOWProcess},
 			runtimeHandler:   wcowProcessRuntimeHandler,
-			sandboxImage:     imageWindowsNanoserver,
-			containerImage:   imageWindowsNanoserver,
+			sandboxImage:     imageWindowsNanoserverProcessTest,
+			containerImage:   imageWindowsNanoserverProcessTest,
 			cmd:              []string{"cmd", "/c", "ping", "-t", "127.0.0.1"},
 		},
 		{
@@ -185,11 +185,11 @@ func Test_Container_UpdateResources_CPUShare_NotRunning(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			requireFeatures(t, test.requiredFeatures...)
 
-			if test.runtimeHandler == lcowRuntimeHandler {
+			/*if test.runtimeHandler == lcowRuntimeHandler {
 				pullRequiredLcowImages(t, []string{test.sandboxImage})
 			} else if test.runtimeHandler == wcowHypervisorRuntimeHandler {
 				pullRequiredImages(t, []string{test.sandboxImage})
-			}
+			}*/
 
 			podRequest := &runtime.RunPodSandboxRequest{
 				Config: &runtime.PodSandboxConfig{

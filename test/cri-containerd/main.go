@@ -62,14 +62,15 @@ const (
 
 // Image definitions
 var (
-	imageWindowsNanoserver      = getWindowsNanoserverImage(osversion.Build())
-	imageWindowsServercore      = getWindowsServerCoreImage(osversion.Build())
-	imageWindowsNanoserver17763 = getWindowsNanoserverImage(osversion.RS5)
-	imageWindowsNanoserver18362 = getWindowsNanoserverImage(osversion.V19H1)
-	imageWindowsNanoserver19041 = getWindowsNanoserverImage(osversion.V20H1)
-	imageWindowsServercore17763 = getWindowsServerCoreImage(osversion.RS5)
-	imageWindowsServercore18362 = getWindowsServerCoreImage(osversion.V19H1)
-	imageWindowsServercore19041 = getWindowsServerCoreImage(osversion.V20H1)
+	imageWindowsNanoserver            = getWindowsNanoserverImage(osversion.Build())
+	imageWindowsServercore            = getWindowsServerCoreImage(osversion.Build())
+	imageWindowsNanoserver17763       = getWindowsNanoserverImage(osversion.RS5)
+	imageWindowsNanoserver18362       = getWindowsNanoserverImage(osversion.V19H1)
+	imageWindowsNanoserver19041       = getWindowsNanoserverImage(osversion.V20H1)
+	imageWindowsServercore17763       = getWindowsServerCoreImage(osversion.RS5)
+	imageWindowsServercore18362       = getWindowsServerCoreImage(osversion.V19H1)
+	imageWindowsServercore19041       = getWindowsServerCoreImage(osversion.V20H1)
+	imageWindowsNanoserverProcessTest = "docker.io/library/nanoserver:10.0.21387.1"
 )
 
 // Flags
@@ -159,7 +160,9 @@ func getWindowsNanoserverImage(build uint16) string {
 	case osversion.V20H2:
 		return "mcr.microsoft.com/windows/nanoserver:2009"
 	default:
-		panic("unsupported build")
+		return "mcr.microsoft.com/windows/nanoserver:2009"
+
+		// panic("unsupported build")
 	}
 }
 
@@ -176,7 +179,9 @@ func getWindowsServerCoreImage(build uint16) string {
 	case osversion.V20H2:
 		return "mcr.microsoft.com/windows/servercore:2009"
 	default:
-		panic("unsupported build")
+		return "mcr.microsoft.com/windows/servercore:2009"
+
+		// panic("unsupported build")
 	}
 }
 
