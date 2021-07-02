@@ -29,13 +29,6 @@ type grpcService struct{}
 
 var _ ncproxygrpc.NetworkConfigProxyServer = &grpcService{}
 
-/*
-   rpc AssignVF(AssignVFRequest) returns (AssignVFResponse) {}
-   rpc RemoveVF(RemoveVFRequest) returns (RemoveVFResponse) {}
-   rpc AddNICVirtualFunction (AddNICVirtualFunctionRequest) returns (AddNICVirtualFunctionResponse) {}
-   rpc DeleteNICVirtualFunction (DeleteNICVirtualFunctionRequest) returns (DeleteNICVirtualFunctionResponse) {}
-*/
-
 func (s *grpcService) AssignVF(ctx context.Context, req *ncproxygrpc.AssignVFRequest) (_ *ncproxygrpc.AssignVFResponse, err error) {
 	ctx, span := trace.StartSpan(ctx, "AssignVF")
 	defer span.End()

@@ -1,0 +1,19 @@
+{
+    "grpc": "127.0.0.1:6669",
+    "node_net_svc_addr": "127.0.0.1:6668",
+    "timeout": 10,
+    "networking_settings": {
+        "infiniband": {
+            "id": "PCI\\VEN_15B3&DEV_101B&SUBSYS_000715B3&REV_00\\8&CDB75E6&0&008000400009",
+            "virtual_function_index": 0
+        }, 
+        "hns": {
+            "switch_name": "", 
+            "iov_settings": {
+                "iov_offload_weight": 100,
+                "queue_pairs_requested": 1,
+                "interrupt_moderation": 200
+            }
+        }
+    }
+}

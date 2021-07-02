@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"math/rand"
 	"net"
@@ -22,66 +23,77 @@ import (
 // config agent service that ncproxy talks to. This is solely used to test and
 // will be removed.
 
-const (
-	listenAddr  = "127.0.0.1:6668"
-	ncProxyAddr = "127.0.0.1:6669"
+var (
+	configPath = flag.String("config", "", "Path to JSON configuration file.")
+
+	prefixLength           = "24"
+	prefixLengthInt uint32 = 24
+	ipVersion              = "4"
 )
 
-type service struct {
-	client               ncproxygrpc.NetworkConfigProxyClient
-	containerToNamespace map[string]string
-	endpointToNicID      map[string]string
-	deviceIDToNICVF      map[string]string
-	containerToNetwork   map[string]string
+func generateMAC() (string, error) {
+	buf := make([]byte, 6)
+
+	_, err := rand.Read(buf)
+	if err != nil {
+		return "", err
+	}
+
+	// set first number to 0
+	buf[0] = 0
+	mac := net.HardwareAddr(buf)
+	macString := strings.ToUpper(mac.String())
+	macString = strings.Replace(macString, ":", "-", -1)
+
+	return macString, nil
 }
 
-func (s *service) configureIB(ctx context.Context, containerID, namespaceID string) (_ string, _ uint32, err error) {
-	// call to configure IB device
-	prefixLength := "24"
-	_, gatewayIP, midIP, err := generateIPs(prefixLength)
-	if err != nil {
-		return "", 0, err
-	}
+func generateIPs(prefixLength string) (string, string, string) {
+	buf := []byte{192, 168, 50}
+
+	// set last to 0 for prefix
+	ipPrefixBytes := append(buf, 0)
+	ipPrefix := net.IP(ipPrefixBytes)
+	ipPrefixString := ipPrefix.String() + "/" + prefixLength
+
+	// set the last to 1 for gateway
+	ipGatewayBytes := append(buf, 1)
+	ipGateway := net.IP(ipGatewayBytes)
+	ipGatewayString := ipGateway.String()
+
+	// set last byte for IP address in range
+	last := byte(rand.Intn(255-2) + 2)
+	ipBytes := append(buf, last)
+	ip := net.IP(ipBytes)
+	ipString := ip.String()
+
+	return ipPrefixString, ipGatewayString, ipString
+}
+
+func (s *service) addIBHelper(ctx context.Context, containerID, namespaceID string) (_ *nodenetsvc.ConfigureNetworkingResponse, err error) {
+	_, gatewayIP, midIP := generateIPs(prefixLength)
 	mac, err := generateMAC()
 	if err != nil {
-		return "", 0, err
+		return nil, err
 	}
-
-	// TODO katiewasnothere
-	// - mount drivers onto the UVM (modular version)
-	// - install drivers based on the machine type
-	// 		- run modprobe on driver names
-
-	// TODO katiewasnothere: hardcoded temporarily
-	hostDeviceID := "PCI\\VEN_15B3&DEV_101B&SUBSYS_000715B3&REV_00\\8&CDB75E6&0&008000400009"
-
-	log.G(ctx).WithField("id", hostDeviceID).Info("configureIB device to add")
-
-	var hostDeviceVFIndex uint32 = 0
-
-	// call to configure IB VF
-	// - assign VF to UVM
 	assignReq := &ncproxygrpc.AssignVFRequest{
-		ContainerID: containerID,
-		// TODO katiewasnothere: hardcode device and virtual function index for testing
-		DeviceID:             hostDeviceID,
-		VirtualFunctionIndex: hostDeviceVFIndex,
+		ContainerID:          containerID,
+		DeviceID:             s.conf.NetworkingSettings.InfinibandSettings.ID,
+		VirtualFunctionIndex: s.conf.NetworkingSettings.InfinibandSettings.VirtualFunctionIndex,
 		DeviceType:           ncproxygrpc.AssignVFRequest_Infiniband,
 	}
 	assignResp, err := s.client.AssignVF(ctx, assignReq)
 	if err != nil {
-		return "", 0, err
+		return nil, err
 	}
-
-	log.G(ctx).WithField("resp", assignResp).Info("assigned vf")
 
 	defer func() {
 		if err != nil {
-			// remove VF
+			// remove VF on failure
 			removeReq := &ncproxygrpc.RemoveVFRequest{
 				ContainerID:          containerID,
-				DeviceID:             hostDeviceID,
-				VirtualFunctionIndex: hostDeviceVFIndex,
+				DeviceID:             s.conf.NetworkingSettings.InfinibandSettings.ID,
+				VirtualFunctionIndex: s.conf.NetworkingSettings.InfinibandSettings.VirtualFunctionIndex,
 				DeviceType:           ncproxygrpc.RemoveVFRequest_Infiniband,
 			}
 			if _, err := s.client.RemoveVF(ctx, removeReq); err != nil {
@@ -96,46 +108,30 @@ func (s *service) configureIB(ctx context.Context, containerID, namespaceID stri
 		DeviceID:              assignResp.ID,
 		Macaddress:            mac,
 		Ipaddress:             midIP,
-		IpaddressPrefixlength: 24,
-		// TODO katiewasnothere: do I need the network name??
-		Gateway: gatewayIP,
+		IpaddressPrefixlength: prefixLengthInt,
+		Gateway:               gatewayIP,
 	}
 
 	_, err = s.client.AddNICVirtualFunction(ctx, addReq)
 	if err != nil {
-		return "", 0, err
+		return nil, err
 	}
 
-	log.G(ctx).WithField("resp", assignResp).Info("added nic vf")
-	// - ccall to add adapter to LCOW
-	// 		- relies on fix to opengcs
-	// 		- should this call also handle running ifconfig and ip link to configure?
-	//			- I'm thinking yes
-
-	// TODO katiewasnothere
-	// - get drivers in the container
-	// 		- for now maybe I can just mount the same scsi device into the container
-	return hostDeviceID, hostDeviceVFIndex, nil
+	s.containerToNICVirtualFunctionID[containerID] = assignResp.ID
+	return &nodenetsvc.ConfigureNetworkingResponse{}, nil
 }
 
-// TODO katiewasnothere: maybe we could have a boolean for netsvc or IB
 func (s *service) ConfigureContainerNetworking(ctx context.Context, req *nodenetsvc.ConfigureContainerNetworkingRequest) (_ *nodenetsvc.ConfigureContainerNetworkingResponse, err error) {
-	// make endpoint and network: katiewasnothere
-
 	// for testing purposes, make the endpoint here
 	// - create network, create endpoint, add that to the namespace
 	if req.RequestType == nodenetsvc.RequestType_Setup {
 		log.G(ctx).WithField("req", req).Info("ConfigureContainreNetworking request")
-		prefixLength := "24"
-		prefixIP, gatewayIP, midIP, err := generateIPs(prefixLength)
-		if err != nil {
-			return nil, err
-		}
+		prefixIP, gatewayIP, midIP := generateIPs(prefixLength)
 
 		addNetworkReq := &ncproxygrpc.CreateNetworkRequest{
 			Name:                 req.ContainerID + "_network",
 			Mode:                 ncproxygrpc.CreateNetworkRequest_Transparent,
-			SwitchName:           "mlx",
+			SwitchName:           s.conf.NetworkingSettings.HNSSettings.SwitchName,
 			IpamType:             ncproxygrpc.CreateNetworkRequest_Static,
 			SubnetIpadressPrefix: []string{prefixIP},
 			DefaultGateway:       gatewayIP,
@@ -150,16 +146,7 @@ func (s *service) ConfigureContainerNetworking(ctx context.Context, req *nodenet
 		if err != nil {
 			return nil, err
 		}
-
 		s.containerToNetwork[req.ContainerID] = network.Name
-
-		log.G(ctx).WithField("network", networkResp).Info("ConfigureContainreNetworking created network")
-
-		iovSettings := &ncproxygrpc.IovEndpointPolicySetting{
-			IovOffloadWeight:    100,
-			QueuePairsRequested: 1,
-			InterruptModeration: 200,
-		}
 
 		mac, err := generateMAC()
 		if err != nil {
@@ -173,10 +160,8 @@ func (s *service) ConfigureContainerNetworking(ctx context.Context, req *nodenet
 			Ipaddress:             midIP,
 			IpaddressPrefixlength: prefixLength,
 			NetworkName:           network.Name,
-			IovPolicySettings:     iovSettings,
+			IovPolicySettings:     s.conf.NetworkingSettings.HNSSettings.IOVSettings,
 		}
-
-		log.G(ctx).WithField("endpointCreateReq", endpointCreateReq).Info("ConfigureContainreNetworking endpointCreateReq")
 
 		endpt, err := s.client.CreateEndpoint(ctx, endpointCreateReq)
 		if err != nil {
@@ -193,15 +178,12 @@ func (s *service) ConfigureContainerNetworking(ctx context.Context, req *nodenet
 		if err != nil {
 			return nil, err
 		}
-
-		log.G(ctx).WithField("endpt", endpt).Info("ConfigureContainreNetworking added endpoint")
-
 		s.containerToNamespace[req.ContainerID] = req.NetworkNamespaceID
 
 		resultIPAddr := &nodenetsvc.ContainerIPAddress{
-			Version:        "4",
+			Version:        ipVersion,
 			Ip:             midIP,
-			PrefixLength:   "24",
+			PrefixLength:   prefixLength,
 			DefaultGateway: gatewayIP,
 		}
 		netInterface := &nodenetsvc.ContainerNetworkInterface{
@@ -228,8 +210,6 @@ func (s *service) ConfigureContainerNetworking(ctx context.Context, req *nodenet
 				}
 				if _, err := s.client.DeleteEndpoint(ctx, deleteEndptReq); err != nil {
 					log.G(ctx).WithField("name", endpoint.Name).Warn("failed to delete endpoint")
-					// best effort
-					// return err
 				}
 			}
 		}
@@ -240,7 +220,6 @@ func (s *service) ConfigureContainerNetworking(ctx context.Context, req *nodenet
 			}
 			if _, err := s.client.DeleteNetwork(ctx, deleteReq); err != nil {
 				log.G(ctx).WithField("name", networkName).Warn("failed to delete network")
-				// best effort
 			}
 			delete(s.containerToNetwork, req.ContainerID)
 		}
@@ -251,53 +230,14 @@ func (s *service) ConfigureContainerNetworking(ctx context.Context, req *nodenet
 	return nil, fmt.Errorf("invalid request type %v", req.RequestType)
 }
 
-func generateMAC() (string, error) {
-	buf := make([]byte, 6)
-
-	_, err := rand.Read(buf)
-	if err != nil {
-		return "", err
-	}
-
-	// set first number to 0
-	buf[0] = 0
-	mac := net.HardwareAddr(buf)
-	macString := strings.ToUpper(mac.String())
-	macString = strings.Replace(macString, ":", "-", -1)
-
-	return macString, nil
-}
-
-func generateIPs(prefixLength string) (string, string, string, error) {
-	buf := make([]byte, 4)
-	_, err := rand.Read(buf)
-	if err != nil {
-		return "", "", "", err
-	}
-
-	// set first to 192
-	buf[0] = 192
-	buf[1] = 168
-	buf[2] = 50
-	// set last to 0 for prefix
-	buf[3] = 0
-	ipPrefix := net.IP(buf)
-	ipPrefixString := ipPrefix.String() + "/" + prefixLength
-
-	// set the last to 1 for gateway
-	buf[3] = 1
-	ipGateway := net.IP(buf)
-	ipGatewayString := ipGateway.String()
-
-	// set last to 2 for IP in range
-	buf[3] = byte(rand.Intn(255-2) + 2)
-	ip := net.IP(buf)
-	ipString := ip.String()
-
-	return ipPrefixString, ipGatewayString, ipString, nil
-}
-
 func (s *service) addHelper(ctx context.Context, req *nodenetsvc.ConfigureNetworkingRequest, containerNamespaceID string) (_ *nodenetsvc.ConfigureNetworkingResponse, err error) {
+	if s.conf.NetworkingSettings != nil && s.conf.NetworkingSettings.InfinibandSettings != nil {
+		return s.addIBHelper(ctx, req.ContainerID, containerNamespaceID)
+	}
+	return s.addHNSHelper(ctx, req, containerNamespaceID)
+}
+
+func (s *service) addHNSHelper(ctx context.Context, req *nodenetsvc.ConfigureNetworkingRequest, containerNamespaceID string) (_ *nodenetsvc.ConfigureNetworkingResponse, err error) {
 	eReq := &ncproxygrpc.GetEndpointsRequest{}
 	resp, err := s.client.GetEndpoints(ctx, eReq)
 	if err != nil {
@@ -320,8 +260,6 @@ func (s *service) addHelper(ctx context.Context, req *nodenetsvc.ConfigureNetwor
 			if _, err := s.client.AddNIC(ctx, nsReq); err != nil {
 				return nil, err
 			}
-			log.G(ctx).WithField("nic add req", nsReq).Info("ConfigureNetworking addrequest nic added")
-
 			s.endpointToNicID[endpoint.Name] = nicID.String()
 		}
 
@@ -333,22 +271,48 @@ func (s *service) addHelper(ctx context.Context, req *nodenetsvc.ConfigureNetwor
 		}
 	}()
 
-	// test out ib flow katiewasnothere
-	_, _, err = s.configureIB(ctx, req.ContainerID, containerNamespaceID)
-	if err != nil {
-		return nil, err
-	}
-
-	// normal flow:
-	// look in cache of containerID to namespaceID
-	// get endpoints request, if the endpoint belongs to the namespaceID,
-	// call ncproxy for add nic
-	// for every endpoint call ncproxy for add nic
 	return &nodenetsvc.ConfigureNetworkingResponse{}, nil
 
 }
 
 func (s *service) teardownHelper(ctx context.Context, req *nodenetsvc.ConfigureNetworkingRequest, containerNamespaceID string) (*nodenetsvc.ConfigureNetworkingResponse, error) {
+	if s.conf.NetworkingSettings != nil && s.conf.NetworkingSettings.InfinibandSettings != nil {
+		return s.teardownIBHelper(ctx, req, containerNamespaceID)
+	}
+	return s.teardownHNSHelper(ctx, req, containerNamespaceID)
+}
+
+func (s *service) teardownIBHelper(ctx context.Context, req *nodenetsvc.ConfigureNetworkingRequest, containerNamespaceID string) (*nodenetsvc.ConfigureNetworkingResponse, error) {
+	// delete the interface from the container namespace
+	nicID, ok := s.containerToNICVirtualFunctionID[req.ContainerID]
+	if !ok {
+		return nil, fmt.Errorf("there is no nic VF configured for container %s", req.ContainerID)
+	}
+	deleteReq := &ncproxygrpc.DeleteNICVirtualFunctionRequest{
+		NamespaceID: containerNamespaceID,
+		ContainerID: req.ContainerID,
+		DeviceID:    nicID,
+	}
+	if _, err := s.client.DeleteNICVirtualFunction(ctx, deleteReq); err != nil {
+		// best effort
+		log.G(ctx).WithField("nicID", nicID).Warn("failed to delete endpoint nic")
+	}
+
+	// then remove the VF from the UVM
+	removeVFReq := &ncproxygrpc.RemoveVFRequest{
+		ContainerID:          req.ContainerID,
+		DeviceID:             nicID,
+		VirtualFunctionIndex: s.conf.NetworkingSettings.InfinibandSettings.VirtualFunctionIndex,
+	}
+	if _, err := s.client.RemoveVF(ctx, removeVFReq); err != nil {
+		return nil, err
+	}
+
+	delete(s.containerToNICVirtualFunctionID, req.ContainerID)
+	return &nodenetsvc.ConfigureNetworkingResponse{}, nil
+}
+
+func (s *service) teardownHNSHelper(ctx context.Context, req *nodenetsvc.ConfigureNetworkingRequest, containerNamespaceID string) (*nodenetsvc.ConfigureNetworkingResponse, error) {
 	eReq := &ncproxygrpc.GetEndpointsRequest{}
 	resp, err := s.client.GetEndpoints(ctx, eReq)
 	if err != nil {
@@ -360,8 +324,6 @@ func (s *service) teardownHelper(ctx context.Context, req *nodenetsvc.ConfigureN
 			if !ok {
 				log.G(ctx).WithField("name", endpoint.Name).Warn("endpoint was not assigned a NIC ID previously")
 				continue
-				// best effort
-				// return nil, fmt.Errorf("endpoint was not assigned a NIC ID previously")
 			}
 			// remove endpoints that are in the namespace as NICs
 			nsReq := &ncproxygrpc.DeleteNICRequest{
@@ -371,18 +333,10 @@ func (s *service) teardownHelper(ctx context.Context, req *nodenetsvc.ConfigureN
 			}
 			if _, err := s.client.DeleteNIC(ctx, nsReq); err != nil {
 				log.G(ctx).WithField("name", endpoint.Name).Warn("failed to delete endpoint nic")
-				// best effort
-				// return nil, err
 			}
 			delete(s.endpointToNicID, endpoint.Name)
 		}
 	}
-
-	// normal flow:
-	// look in cache of containerID to namespaceID
-	// get endpoints request, if the endpoint belongs to the namespaceID,
-	// call ncproxy for add nic
-	// for every endpoint call ncproxy for add nic
 	return &nodenetsvc.ConfigureNetworkingResponse{}, nil
 }
 
@@ -421,11 +375,9 @@ func (s *service) ConfigureNetworking(ctx context.Context, req *nodenetsvc.Confi
 	}
 
 	log.G(ctx).WithField("req", req).Info("ConfigureNetworking request")
-
 	if req.RequestType == nodenetsvc.RequestType_Setup {
 		return s.addHelper(ctx, req, containerNamespaceID)
 	}
-	// TODO katiewasnothere: handle teardown req
 	return s.teardownHelper(ctx, req, containerNamespaceID)
 }
 
@@ -434,7 +386,15 @@ func (s *service) PingNodeNetworkService(ctx context.Context, req *nodenetsvc.Pi
 }
 
 func main() {
+	var err error
 	ctx := context.Background()
+
+	flag.Parse()
+	conf, err := readConfig(*configPath)
+	if err != nil {
+		log.G(ctx).WithError(err).Errorf("failed to read network agent's config file at %s", *configPath)
+		os.Exit(1)
+	}
 
 	sigChan := make(chan os.Signal, 1)
 	serveErr := make(chan error, 1)
@@ -443,30 +403,29 @@ func main() {
 	defer signal.Stop(sigChan)
 
 	grpcClient, err := grpc.Dial(
-		ncProxyAddr,
+		conf.GRPCAddr,
 		grpc.WithInsecure(),
-		// grpc.WithBlock(),
-		// grpc.WithTimeout(30*time.Second),
 	)
 	if err != nil {
-		log.G(ctx).WithError(err).Errorf("failed to connect to ncproxy at %s", ncProxyAddr)
+		log.G(ctx).WithError(err).Errorf("failed to connect to ncproxy at %s", conf.GRPCAddr)
 		os.Exit(1)
 	}
 	defer grpcClient.Close()
 
-	log.G(ctx).WithField("addr", ncProxyAddr).Info("connected to ncproxy")
+	log.G(ctx).WithField("addr", conf.GRPCAddr).Info("connected to ncproxy")
 	ncproxyClient := ncproxygrpc.NewNetworkConfigProxyClient(grpcClient)
 	service := &service{
-		client:               ncproxyClient,
-		containerToNamespace: make(map[string]string),
-		endpointToNicID:      make(map[string]string),
-		deviceIDToNICVF:      make(map[string]string),
-		containerToNetwork:   make(map[string]string),
+		conf:                            conf,
+		client:                          ncproxyClient,
+		containerToNamespace:            make(map[string]string),
+		endpointToNicID:                 make(map[string]string),
+		containerToNetwork:              make(map[string]string),
+		containerToNICVirtualFunctionID: make(map[string]string),
 	}
 	server := grpc.NewServer()
 	nodenetsvc.RegisterNodeNetworkServiceServer(server, service)
 
-	grpcListener, err := net.Listen("tcp", listenAddr)
+	grpcListener, err := net.Listen("tcp", conf.NodeNetSvcAddr)
 	if err != nil {
 		log.G(ctx).WithError(err).Errorf("failed to listen on %s", grpcListener.Addr().String())
 		os.Exit(1)
@@ -482,7 +441,7 @@ func main() {
 		}
 	}()
 
-	log.G(ctx).WithField("addr", listenAddr).Info("serving network service agent")
+	log.G(ctx).WithField("addr", conf.NodeNetSvcAddr).Info("serving network service agent")
 
 	// Wait for server error or user cancellation.
 	select {
@@ -497,70 +456,3 @@ func main() {
 	// Cancel inflight requests and shutdown service
 	server.GracefulStop()
 }
-
-/*var modifyCommand = cli.Command{
-	Name: "modify",
-	Flags: []cli.Flag{
-		cli.StringFlag{
-			Name:  "containerID",
-			Usage: "the ID of the container to modify",
-		},
-		cli.StringFlag{
-			Name:  "namespaceID",
-			Usage: "the ID of the namespace for the container",
-		},
-		cli.Uint64Flag{
-			Name:  "offload-weight",
-			Usage: "target iov offload weight",
-		},
-		cli.Uint64Flag{
-			Name:  "queue-pairs",
-			Usage: "target iov queue pairs",
-			Value: 1,
-		},
-		cli.Uint64Flag{
-			Name:  "interruption-mode",
-			Usage: "target iov interruption mode",
-			Value: 200,
-		},
-	},
-	Action: func(cliCtx *cli.Context) error {
-		ctx := context.Background()
-
-		containerID := cliCtx.String("containerID")
-		if containerID == "" {
-			return errors.New("containerID is required to modify settings")
-		}
-
-		namespaceID := cliCtx.String("namespaceID")
-		if namespaceID == "" {
-			return errors.New("namespaceID is required to modify settings")
-		}
-
-		grpcClient, err := grpc.Dial(
-			ncProxyAddr,
-			grpc.WithInsecure(),
-		)
-		if err != nil {
-			log.G(ctx).WithError(err).Errorf("failed to connect to ncproxy at %s", ncProxyAddr)
-			os.Exit(1)
-		}
-		defer grpcClient.Close()
-
-		ncproxyClient := ncproxygrpc.NewNetworkConfigProxyClient(grpcClient)
-		service := &service{ncproxyClient, ""}
-
-		iovWeight := cliCtx.Uint64("offload-weight")
-		queuePairs := cliCtx.Uint64("queue-pairs")
-		interruptMode := cliCtx.Uint64("interruption-mode")
-
-		iovSettings := &ncproxygrpc.IovEndpointPolicySetting{
-			IovOffloadWeight:    uint32(iovWeight),
-			QueuePairsRequested: uint32(queuePairs),
-			InterruptModeration: uint32(interruptMode),
-		}
-
-		// TODO katiewasnothere: how to get service
-		return service.modifyHelper(ctx, containerID, namespaceID, iovSettings)
-	},
-}*/
