@@ -25,65 +25,18 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-type AssignVFRequest_DeviceType int32
-
-const (
-	AssignVFRequest_Infiniband AssignVFRequest_DeviceType = 0
-)
-
-var AssignVFRequest_DeviceType_name = map[int32]string{
-	0: "Infiniband",
-}
-
-var AssignVFRequest_DeviceType_value = map[string]int32{
-	"Infiniband": 0,
-}
-
-func (x AssignVFRequest_DeviceType) String() string {
-	return proto.EnumName(AssignVFRequest_DeviceType_name, int32(x))
-}
-
-func (AssignVFRequest_DeviceType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{4, 0}
-}
-
-type RemoveVFRequest_DeviceType int32
-
-const (
-	RemoveVFRequest_Infiniband RemoveVFRequest_DeviceType = 0
-)
-
-var RemoveVFRequest_DeviceType_name = map[int32]string{
-	0: "Infiniband",
-}
-
-var RemoveVFRequest_DeviceType_value = map[string]int32{
-	"Infiniband": 0,
-}
-
-func (x RemoveVFRequest_DeviceType) String() string {
-	return proto.EnumName(RemoveVFRequest_DeviceType_name, int32(x))
-}
-
-func (RemoveVFRequest_DeviceType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{6, 0}
-}
-
 type CreateNetworkRequest_NetworkMode int32
 
 const (
 	CreateNetworkRequest_Transparent CreateNetworkRequest_NetworkMode = 0
-	CreateNetworkRequest_Infiniband  CreateNetworkRequest_NetworkMode = 1
 )
 
 var CreateNetworkRequest_NetworkMode_name = map[int32]string{
 	0: "Transparent",
-	1: "Infiniband",
 }
 
 var CreateNetworkRequest_NetworkMode_value = map[string]int32{
 	"Transparent": 0,
-	"Infiniband":  1,
 }
 
 func (x CreateNetworkRequest_NetworkMode) String() string {
@@ -119,28 +72,25 @@ func (CreateNetworkRequest_IpamType) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_b4dbe7e533383a60, []int{14, 1}
 }
 
-type DeleteNICVirtualFunctionRequest struct {
-	// TODO katiewasnothere: this should make call to configure interface
-	// DO we even need this or care about them being separate?
-	NamespaceID          string   `protobuf:"bytes,1,opt,name=namespace_id,json=namespaceId,proto3" json:"namespace_id,omitempty"`
-	ContainerID          string   `protobuf:"bytes,2,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
-	DeviceID             string   `protobuf:"bytes,3,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+type DeleteNICWithVFRequest struct {
+	ContainerID          string   `protobuf:"bytes,1,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
+	NicID                string   `protobuf:"bytes,2,opt,name=nic_id,json=nicId,proto3" json:"nic_id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *DeleteNICVirtualFunctionRequest) Reset()      { *m = DeleteNICVirtualFunctionRequest{} }
-func (*DeleteNICVirtualFunctionRequest) ProtoMessage() {}
-func (*DeleteNICVirtualFunctionRequest) Descriptor() ([]byte, []int) {
+func (m *DeleteNICWithVFRequest) Reset()      { *m = DeleteNICWithVFRequest{} }
+func (*DeleteNICWithVFRequest) ProtoMessage() {}
+func (*DeleteNICWithVFRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b4dbe7e533383a60, []int{0}
 }
-func (m *DeleteNICVirtualFunctionRequest) XXX_Unmarshal(b []byte) error {
+func (m *DeleteNICWithVFRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *DeleteNICVirtualFunctionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *DeleteNICWithVFRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_DeleteNICVirtualFunctionRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_DeleteNICWithVFRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalTo(b)
@@ -150,35 +100,35 @@ func (m *DeleteNICVirtualFunctionRequest) XXX_Marshal(b []byte, deterministic bo
 		return b[:n], nil
 	}
 }
-func (m *DeleteNICVirtualFunctionRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DeleteNICVirtualFunctionRequest.Merge(m, src)
+func (m *DeleteNICWithVFRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteNICWithVFRequest.Merge(m, src)
 }
-func (m *DeleteNICVirtualFunctionRequest) XXX_Size() int {
+func (m *DeleteNICWithVFRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *DeleteNICVirtualFunctionRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_DeleteNICVirtualFunctionRequest.DiscardUnknown(m)
+func (m *DeleteNICWithVFRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteNICWithVFRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_DeleteNICVirtualFunctionRequest proto.InternalMessageInfo
+var xxx_messageInfo_DeleteNICWithVFRequest proto.InternalMessageInfo
 
-type DeleteNICVirtualFunctionResponse struct {
+type DeleteNICWithVFResponse struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *DeleteNICVirtualFunctionResponse) Reset()      { *m = DeleteNICVirtualFunctionResponse{} }
-func (*DeleteNICVirtualFunctionResponse) ProtoMessage() {}
-func (*DeleteNICVirtualFunctionResponse) Descriptor() ([]byte, []int) {
+func (m *DeleteNICWithVFResponse) Reset()      { *m = DeleteNICWithVFResponse{} }
+func (*DeleteNICWithVFResponse) ProtoMessage() {}
+func (*DeleteNICWithVFResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b4dbe7e533383a60, []int{1}
 }
-func (m *DeleteNICVirtualFunctionResponse) XXX_Unmarshal(b []byte) error {
+func (m *DeleteNICWithVFResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *DeleteNICVirtualFunctionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *DeleteNICWithVFResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_DeleteNICVirtualFunctionResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_DeleteNICWithVFResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalTo(b)
@@ -188,44 +138,41 @@ func (m *DeleteNICVirtualFunctionResponse) XXX_Marshal(b []byte, deterministic b
 		return b[:n], nil
 	}
 }
-func (m *DeleteNICVirtualFunctionResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DeleteNICVirtualFunctionResponse.Merge(m, src)
+func (m *DeleteNICWithVFResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteNICWithVFResponse.Merge(m, src)
 }
-func (m *DeleteNICVirtualFunctionResponse) XXX_Size() int {
+func (m *DeleteNICWithVFResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *DeleteNICVirtualFunctionResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_DeleteNICVirtualFunctionResponse.DiscardUnknown(m)
+func (m *DeleteNICWithVFResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteNICWithVFResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_DeleteNICVirtualFunctionResponse proto.InternalMessageInfo
+var xxx_messageInfo_DeleteNICWithVFResponse proto.InternalMessageInfo
 
-type AddNICVirtualFunctionRequest struct {
-	// TODO katiewasnothere: this should make call to configure interface
-	// DO we even need this or care about them being separate?
+type AddNICWithVFRequest struct {
 	NamespaceID           string   `protobuf:"bytes,1,opt,name=namespace_id,json=namespaceId,proto3" json:"namespace_id,omitempty"`
 	ContainerID           string   `protobuf:"bytes,2,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
-	DeviceID              string   `protobuf:"bytes,3,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
-	Macaddress            string   `protobuf:"bytes,4,opt,name=macaddress,proto3" json:"macaddress,omitempty"`
-	Ipaddress             string   `protobuf:"bytes,5,opt,name=ipaddress,proto3" json:"ipaddress,omitempty"`
-	IpaddressPrefixlength uint32   `protobuf:"varint,6,opt,name=ipaddress_prefixlength,json=ipaddressPrefixlength,proto3" json:"ipaddress_prefixlength,omitempty"`
-	Gateway               string   `protobuf:"bytes,7,opt,name=gateway,proto3" json:"gateway,omitempty"`
+	NicID                 string   `protobuf:"bytes,3,opt,name=nic_id,json=nicId,proto3" json:"nic_id,omitempty"`
+	Ipaddress             string   `protobuf:"bytes,4,opt,name=ipaddress,proto3" json:"ipaddress,omitempty"`
+	IpaddressPrefixlength uint32   `protobuf:"varint,5,opt,name=ipaddress_prefixlength,json=ipaddressPrefixlength,proto3" json:"ipaddress_prefixlength,omitempty"`
+	DefaultGateway        string   `protobuf:"bytes,6,opt,name=default_gateway,json=defaultGateway,proto3" json:"default_gateway,omitempty"`
 	XXX_NoUnkeyedLiteral  struct{} `json:"-"`
 	XXX_unrecognized      []byte   `json:"-"`
 	XXX_sizecache         int32    `json:"-"`
 }
 
-func (m *AddNICVirtualFunctionRequest) Reset()      { *m = AddNICVirtualFunctionRequest{} }
-func (*AddNICVirtualFunctionRequest) ProtoMessage() {}
-func (*AddNICVirtualFunctionRequest) Descriptor() ([]byte, []int) {
+func (m *AddNICWithVFRequest) Reset()      { *m = AddNICWithVFRequest{} }
+func (*AddNICWithVFRequest) ProtoMessage() {}
+func (*AddNICWithVFRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b4dbe7e533383a60, []int{2}
 }
-func (m *AddNICVirtualFunctionRequest) XXX_Unmarshal(b []byte) error {
+func (m *AddNICWithVFRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *AddNICVirtualFunctionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *AddNICWithVFRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_AddNICVirtualFunctionRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_AddNICWithVFRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalTo(b)
@@ -235,35 +182,35 @@ func (m *AddNICVirtualFunctionRequest) XXX_Marshal(b []byte, deterministic bool)
 		return b[:n], nil
 	}
 }
-func (m *AddNICVirtualFunctionRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AddNICVirtualFunctionRequest.Merge(m, src)
+func (m *AddNICWithVFRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AddNICWithVFRequest.Merge(m, src)
 }
-func (m *AddNICVirtualFunctionRequest) XXX_Size() int {
+func (m *AddNICWithVFRequest) XXX_Size() int {
 	return m.Size()
 }
-func (m *AddNICVirtualFunctionRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_AddNICVirtualFunctionRequest.DiscardUnknown(m)
+func (m *AddNICWithVFRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_AddNICWithVFRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AddNICVirtualFunctionRequest proto.InternalMessageInfo
+var xxx_messageInfo_AddNICWithVFRequest proto.InternalMessageInfo
 
-type AddNICVirtualFunctionResponse struct {
+type AddNICWithVFResponse struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *AddNICVirtualFunctionResponse) Reset()      { *m = AddNICVirtualFunctionResponse{} }
-func (*AddNICVirtualFunctionResponse) ProtoMessage() {}
-func (*AddNICVirtualFunctionResponse) Descriptor() ([]byte, []int) {
+func (m *AddNICWithVFResponse) Reset()      { *m = AddNICWithVFResponse{} }
+func (*AddNICWithVFResponse) ProtoMessage() {}
+func (*AddNICWithVFResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b4dbe7e533383a60, []int{3}
 }
-func (m *AddNICVirtualFunctionResponse) XXX_Unmarshal(b []byte) error {
+func (m *AddNICWithVFResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *AddNICVirtualFunctionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *AddNICWithVFResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_AddNICVirtualFunctionResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_AddNICWithVFResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalTo(b)
@@ -273,26 +220,25 @@ func (m *AddNICVirtualFunctionResponse) XXX_Marshal(b []byte, deterministic bool
 		return b[:n], nil
 	}
 }
-func (m *AddNICVirtualFunctionResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_AddNICVirtualFunctionResponse.Merge(m, src)
+func (m *AddNICWithVFResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AddNICWithVFResponse.Merge(m, src)
 }
-func (m *AddNICVirtualFunctionResponse) XXX_Size() int {
+func (m *AddNICWithVFResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *AddNICVirtualFunctionResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_AddNICVirtualFunctionResponse.DiscardUnknown(m)
+func (m *AddNICWithVFResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_AddNICWithVFResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_AddNICVirtualFunctionResponse proto.InternalMessageInfo
+var xxx_messageInfo_AddNICWithVFResponse proto.InternalMessageInfo
 
 type AssignVFRequest struct {
-	ContainerID          string                     `protobuf:"bytes,1,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
-	DeviceID             string                     `protobuf:"bytes,2,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
-	VirtualFunctionIndex uint32                     `protobuf:"varint,3,opt,name=virtual_function_index,json=virtualFunctionIndex,proto3" json:"virtual_function_index,omitempty"`
-	DeviceType           AssignVFRequest_DeviceType `protobuf:"varint,4,opt,name=device_type,json=deviceType,proto3,enum=ncproxygrpc.AssignVFRequest_DeviceType" json:"device_type,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
-	XXX_unrecognized     []byte                     `json:"-"`
-	XXX_sizecache        int32                      `json:"-"`
+	ContainerID          string   `protobuf:"bytes,1,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
+	DeviceID             string   `protobuf:"bytes,2,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	VirtualFunctionIndex uint32   `protobuf:"varint,3,opt,name=virtual_function_index,json=virtualFunctionIndex,proto3" json:"virtual_function_index,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *AssignVFRequest) Reset()      { *m = AssignVFRequest{} }
@@ -367,14 +313,12 @@ func (m *AssignVFResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_AssignVFResponse proto.InternalMessageInfo
 
 type RemoveVFRequest struct {
-	// TODO katiewasnothere: don't know what fields we need
-	ContainerID          string                     `protobuf:"bytes,1,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
-	DeviceID             string                     `protobuf:"bytes,2,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
-	VirtualFunctionIndex uint32                     `protobuf:"varint,3,opt,name=virtual_function_index,json=virtualFunctionIndex,proto3" json:"virtual_function_index,omitempty"`
-	DeviceType           RemoveVFRequest_DeviceType `protobuf:"varint,4,opt,name=device_type,json=deviceType,proto3,enum=ncproxygrpc.RemoveVFRequest_DeviceType" json:"device_type,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
-	XXX_unrecognized     []byte                     `json:"-"`
-	XXX_sizecache        int32                      `json:"-"`
+	ContainerID          string   `protobuf:"bytes,1,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"`
+	DeviceID             string   `protobuf:"bytes,2,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	VirtualFunctionIndex uint32   `protobuf:"varint,3,opt,name=virtual_function_index,json=virtualFunctionIndex,proto3" json:"virtual_function_index,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *RemoveVFRequest) Reset()      { *m = RemoveVFRequest{} }
@@ -686,15 +630,15 @@ func (m *DeleteNICResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_DeleteNICResponse proto.InternalMessageInfo
 
 type CreateNetworkRequest struct {
-	Name                 string                           `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Mode                 CreateNetworkRequest_NetworkMode `protobuf:"varint,2,opt,name=mode,proto3,enum=ncproxygrpc.CreateNetworkRequest_NetworkMode" json:"mode,omitempty"`
-	SwitchName           string                           `protobuf:"bytes,3,opt,name=switch_name,json=switchName,proto3" json:"switch_name,omitempty"`
-	IpamType             CreateNetworkRequest_IpamType    `protobuf:"varint,4,opt,name=ipam_type,json=ipamType,proto3,enum=ncproxygrpc.CreateNetworkRequest_IpamType" json:"ipam_type,omitempty"`
-	SubnetIpadressPrefix []string                         `protobuf:"bytes,5,rep,name=subnet_ipadress_prefix,json=subnetIpadressPrefix,proto3" json:"subnet_ipadress_prefix,omitempty"`
-	DefaultGateway       string                           `protobuf:"bytes,6,opt,name=default_gateway,json=defaultGateway,proto3" json:"default_gateway,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                         `json:"-"`
-	XXX_unrecognized     []byte                           `json:"-"`
-	XXX_sizecache        int32                            `json:"-"`
+	Name                  string                           `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Mode                  CreateNetworkRequest_NetworkMode `protobuf:"varint,2,opt,name=mode,proto3,enum=ncproxygrpc.CreateNetworkRequest_NetworkMode" json:"mode,omitempty"`
+	SwitchName            string                           `protobuf:"bytes,3,opt,name=switch_name,json=switchName,proto3" json:"switch_name,omitempty"`
+	IpamType              CreateNetworkRequest_IpamType    `protobuf:"varint,4,opt,name=ipam_type,json=ipamType,proto3,enum=ncproxygrpc.CreateNetworkRequest_IpamType" json:"ipam_type,omitempty"`
+	SubnetIpaddressPrefix []string                         `protobuf:"bytes,5,rep,name=subnet_ipaddress_prefix,json=subnetIpaddressPrefix,proto3" json:"subnet_ipaddress_prefix,omitempty"`
+	DefaultGateway        string                           `protobuf:"bytes,6,opt,name=default_gateway,json=defaultGateway,proto3" json:"default_gateway,omitempty"`
+	XXX_NoUnkeyedLiteral  struct{}                         `json:"-"`
+	XXX_unrecognized      []byte                           `json:"-"`
+	XXX_sizecache         int32                            `json:"-"`
 }
 
 func (m *CreateNetworkRequest) Reset()      { *m = CreateNetworkRequest{} }
@@ -808,9 +752,9 @@ func (m *PortNameEndpointPolicySetting) XXX_DiscardUnknown() {
 var xxx_messageInfo_PortNameEndpointPolicySetting proto.InternalMessageInfo
 
 type IovEndpointPolicySetting struct {
-	IovOffloadWeight     uint32   `protobuf:"varint,1,opt,name=IovOffloadWeight,proto3" json:"IovOffloadWeight,omitempty"`
-	QueuePairsRequested  uint32   `protobuf:"varint,2,opt,name=QueuePairsRequested,proto3" json:"QueuePairsRequested,omitempty"`
-	InterruptModeration  uint32   `protobuf:"varint,3,opt,name=InterruptModeration,proto3" json:"InterruptModeration,omitempty"`
+	IovOffloadWeight     uint32   `protobuf:"varint,1,opt,name=iov_offload_weight,json=iovOffloadWeight,proto3" json:"iov_offload_weight,omitempty"`
+	QueuePairsRequested  uint32   `protobuf:"varint,2,opt,name=queue_pairs_requested,json=queuePairsRequested,proto3" json:"queue_pairs_requested,omitempty"`
+	InterruptModeration  uint32   `protobuf:"varint,3,opt,name=interrupt_moderation,json=interruptModeration,proto3" json:"interrupt_moderation,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -848,6 +792,47 @@ func (m *IovEndpointPolicySetting) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_IovEndpointPolicySetting proto.InternalMessageInfo
 
+type DnsSetting struct {
+	ServerIpAddrs        []string `protobuf:"bytes,1,rep,name=server_ip_addrs,json=serverIpAddrs,proto3" json:"server_ip_addrs,omitempty"`
+	Domain               string   `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`
+	Search               []string `protobuf:"bytes,3,rep,name=search,proto3" json:"search,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DnsSetting) Reset()      { *m = DnsSetting{} }
+func (*DnsSetting) ProtoMessage() {}
+func (*DnsSetting) Descriptor() ([]byte, []int) {
+	return fileDescriptor_b4dbe7e533383a60, []int{18}
+}
+func (m *DnsSetting) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DnsSetting) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DnsSetting.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *DnsSetting) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DnsSetting.Merge(m, src)
+}
+func (m *DnsSetting) XXX_Size() int {
+	return m.Size()
+}
+func (m *DnsSetting) XXX_DiscardUnknown() {
+	xxx_messageInfo_DnsSetting.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DnsSetting proto.InternalMessageInfo
+
 type CreateEndpointRequest struct {
 	Name                  string                         `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Macaddress            string                         `protobuf:"bytes,2,opt,name=macaddress,proto3" json:"macaddress,omitempty"`
@@ -856,6 +841,7 @@ type CreateEndpointRequest struct {
 	NetworkName           string                         `protobuf:"bytes,5,opt,name=network_name,json=networkName,proto3" json:"network_name,omitempty"`
 	PortnamePolicySetting *PortNameEndpointPolicySetting `protobuf:"bytes,6,opt,name=portname_policy_setting,json=portnamePolicySetting,proto3" json:"portname_policy_setting,omitempty"`
 	IovPolicySettings     *IovEndpointPolicySetting      `protobuf:"bytes,7,opt,name=iov_policy_settings,json=iovPolicySettings,proto3" json:"iov_policy_settings,omitempty"`
+	DnsSetting            *DnsSetting                    `protobuf:"bytes,16,opt,name=dns_setting,json=dnsSetting,proto3" json:"dns_setting,omitempty"`
 	XXX_NoUnkeyedLiteral  struct{}                       `json:"-"`
 	XXX_unrecognized      []byte                         `json:"-"`
 	XXX_sizecache         int32                          `json:"-"`
@@ -864,7 +850,7 @@ type CreateEndpointRequest struct {
 func (m *CreateEndpointRequest) Reset()      { *m = CreateEndpointRequest{} }
 func (*CreateEndpointRequest) ProtoMessage() {}
 func (*CreateEndpointRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{18}
+	return fileDescriptor_b4dbe7e533383a60, []int{19}
 }
 func (m *CreateEndpointRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -903,7 +889,7 @@ type CreateEndpointResponse struct {
 func (m *CreateEndpointResponse) Reset()      { *m = CreateEndpointResponse{} }
 func (*CreateEndpointResponse) ProtoMessage() {}
 func (*CreateEndpointResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{19}
+	return fileDescriptor_b4dbe7e533383a60, []int{20}
 }
 func (m *CreateEndpointResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -943,7 +929,7 @@ type AddEndpointRequest struct {
 func (m *AddEndpointRequest) Reset()      { *m = AddEndpointRequest{} }
 func (*AddEndpointRequest) ProtoMessage() {}
 func (*AddEndpointRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{20}
+	return fileDescriptor_b4dbe7e533383a60, []int{21}
 }
 func (m *AddEndpointRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -981,7 +967,7 @@ type AddEndpointResponse struct {
 func (m *AddEndpointResponse) Reset()      { *m = AddEndpointResponse{} }
 func (*AddEndpointResponse) ProtoMessage() {}
 func (*AddEndpointResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{21}
+	return fileDescriptor_b4dbe7e533383a60, []int{22}
 }
 func (m *AddEndpointResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1020,7 +1006,7 @@ type DeleteEndpointRequest struct {
 func (m *DeleteEndpointRequest) Reset()      { *m = DeleteEndpointRequest{} }
 func (*DeleteEndpointRequest) ProtoMessage() {}
 func (*DeleteEndpointRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{22}
+	return fileDescriptor_b4dbe7e533383a60, []int{23}
 }
 func (m *DeleteEndpointRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1058,7 +1044,7 @@ type DeleteEndpointResponse struct {
 func (m *DeleteEndpointResponse) Reset()      { *m = DeleteEndpointResponse{} }
 func (*DeleteEndpointResponse) ProtoMessage() {}
 func (*DeleteEndpointResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{23}
+	return fileDescriptor_b4dbe7e533383a60, []int{24}
 }
 func (m *DeleteEndpointResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1097,7 +1083,7 @@ type DeleteNetworkRequest struct {
 func (m *DeleteNetworkRequest) Reset()      { *m = DeleteNetworkRequest{} }
 func (*DeleteNetworkRequest) ProtoMessage() {}
 func (*DeleteNetworkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{24}
+	return fileDescriptor_b4dbe7e533383a60, []int{25}
 }
 func (m *DeleteNetworkRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1135,7 +1121,7 @@ type DeleteNetworkResponse struct {
 func (m *DeleteNetworkResponse) Reset()      { *m = DeleteNetworkResponse{} }
 func (*DeleteNetworkResponse) ProtoMessage() {}
 func (*DeleteNetworkResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{25}
+	return fileDescriptor_b4dbe7e533383a60, []int{26}
 }
 func (m *DeleteNetworkResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1174,7 +1160,7 @@ type GetEndpointRequest struct {
 func (m *GetEndpointRequest) Reset()      { *m = GetEndpointRequest{} }
 func (*GetEndpointRequest) ProtoMessage() {}
 func (*GetEndpointRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{26}
+	return fileDescriptor_b4dbe7e533383a60, []int{27}
 }
 func (m *GetEndpointRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1204,19 +1190,20 @@ func (m *GetEndpointRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_GetEndpointRequest proto.InternalMessageInfo
 
 type GetEndpointResponse struct {
-	ID                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name                 string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Network              string   `protobuf:"bytes,3,opt,name=network,proto3" json:"network,omitempty"`
-	Namespace            string   `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	ID                   string      `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name                 string      `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Network              string      `protobuf:"bytes,3,opt,name=network,proto3" json:"network,omitempty"`
+	Namespace            string      `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	DnsSetting           *DnsSetting `protobuf:"bytes,5,opt,name=dns_setting,json=dnsSetting,proto3" json:"dns_setting,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
 }
 
 func (m *GetEndpointResponse) Reset()      { *m = GetEndpointResponse{} }
 func (*GetEndpointResponse) ProtoMessage() {}
 func (*GetEndpointResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{27}
+	return fileDescriptor_b4dbe7e533383a60, []int{28}
 }
 func (m *GetEndpointResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1255,7 +1242,7 @@ type GetNetworkRequest struct {
 func (m *GetNetworkRequest) Reset()      { *m = GetNetworkRequest{} }
 func (*GetNetworkRequest) ProtoMessage() {}
 func (*GetNetworkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{28}
+	return fileDescriptor_b4dbe7e533383a60, []int{29}
 }
 func (m *GetNetworkRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1295,7 +1282,7 @@ type GetNetworkResponse struct {
 func (m *GetNetworkResponse) Reset()      { *m = GetNetworkResponse{} }
 func (*GetNetworkResponse) ProtoMessage() {}
 func (*GetNetworkResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{29}
+	return fileDescriptor_b4dbe7e533383a60, []int{30}
 }
 func (m *GetNetworkResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1333,7 +1320,7 @@ type GetEndpointsRequest struct {
 func (m *GetEndpointsRequest) Reset()      { *m = GetEndpointsRequest{} }
 func (*GetEndpointsRequest) ProtoMessage() {}
 func (*GetEndpointsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{30}
+	return fileDescriptor_b4dbe7e533383a60, []int{31}
 }
 func (m *GetEndpointsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1372,7 +1359,7 @@ type GetEndpointsResponse struct {
 func (m *GetEndpointsResponse) Reset()      { *m = GetEndpointsResponse{} }
 func (*GetEndpointsResponse) ProtoMessage() {}
 func (*GetEndpointsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{31}
+	return fileDescriptor_b4dbe7e533383a60, []int{32}
 }
 func (m *GetEndpointsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1410,7 +1397,7 @@ type GetNetworksRequest struct {
 func (m *GetNetworksRequest) Reset()      { *m = GetNetworksRequest{} }
 func (*GetNetworksRequest) ProtoMessage() {}
 func (*GetNetworksRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{32}
+	return fileDescriptor_b4dbe7e533383a60, []int{33}
 }
 func (m *GetNetworksRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1449,7 +1436,7 @@ type GetNetworksResponse struct {
 func (m *GetNetworksResponse) Reset()      { *m = GetNetworksResponse{} }
 func (*GetNetworksResponse) ProtoMessage() {}
 func (*GetNetworksResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_b4dbe7e533383a60, []int{33}
+	return fileDescriptor_b4dbe7e533383a60, []int{34}
 }
 func (m *GetNetworksResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1479,14 +1466,12 @@ func (m *GetNetworksResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_GetNetworksResponse proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterEnum("ncproxygrpc.AssignVFRequest_DeviceType", AssignVFRequest_DeviceType_name, AssignVFRequest_DeviceType_value)
-	proto.RegisterEnum("ncproxygrpc.RemoveVFRequest_DeviceType", RemoveVFRequest_DeviceType_name, RemoveVFRequest_DeviceType_value)
 	proto.RegisterEnum("ncproxygrpc.CreateNetworkRequest_NetworkMode", CreateNetworkRequest_NetworkMode_name, CreateNetworkRequest_NetworkMode_value)
 	proto.RegisterEnum("ncproxygrpc.CreateNetworkRequest_IpamType", CreateNetworkRequest_IpamType_name, CreateNetworkRequest_IpamType_value)
-	proto.RegisterType((*DeleteNICVirtualFunctionRequest)(nil), "ncproxygrpc.DeleteNICVirtualFunctionRequest")
-	proto.RegisterType((*DeleteNICVirtualFunctionResponse)(nil), "ncproxygrpc.DeleteNICVirtualFunctionResponse")
-	proto.RegisterType((*AddNICVirtualFunctionRequest)(nil), "ncproxygrpc.AddNICVirtualFunctionRequest")
-	proto.RegisterType((*AddNICVirtualFunctionResponse)(nil), "ncproxygrpc.AddNICVirtualFunctionResponse")
+	proto.RegisterType((*DeleteNICWithVFRequest)(nil), "ncproxygrpc.DeleteNICWithVFRequest")
+	proto.RegisterType((*DeleteNICWithVFResponse)(nil), "ncproxygrpc.DeleteNICWithVFResponse")
+	proto.RegisterType((*AddNICWithVFRequest)(nil), "ncproxygrpc.AddNICWithVFRequest")
+	proto.RegisterType((*AddNICWithVFResponse)(nil), "ncproxygrpc.AddNICWithVFResponse")
 	proto.RegisterType((*AssignVFRequest)(nil), "ncproxygrpc.AssignVFRequest")
 	proto.RegisterType((*AssignVFResponse)(nil), "ncproxygrpc.AssignVFResponse")
 	proto.RegisterType((*RemoveVFRequest)(nil), "ncproxygrpc.RemoveVFRequest")
@@ -1501,6 +1486,7 @@ func init() {
 	proto.RegisterType((*CreateNetworkResponse)(nil), "ncproxygrpc.CreateNetworkResponse")
 	proto.RegisterType((*PortNameEndpointPolicySetting)(nil), "ncproxygrpc.PortNameEndpointPolicySetting")
 	proto.RegisterType((*IovEndpointPolicySetting)(nil), "ncproxygrpc.IovEndpointPolicySetting")
+	proto.RegisterType((*DnsSetting)(nil), "ncproxygrpc.DnsSetting")
 	proto.RegisterType((*CreateEndpointRequest)(nil), "ncproxygrpc.CreateEndpointRequest")
 	proto.RegisterType((*CreateEndpointResponse)(nil), "ncproxygrpc.CreateEndpointResponse")
 	proto.RegisterType((*AddEndpointRequest)(nil), "ncproxygrpc.AddEndpointRequest")
@@ -1524,97 +1510,99 @@ func init() {
 }
 
 var fileDescriptor_b4dbe7e533383a60 = []byte{
-	// 1428 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x58, 0xcd, 0x6e, 0xdb, 0x46,
-	0x10, 0x16, 0xe5, 0x3f, 0x69, 0x68, 0xd9, 0xf2, 0xfa, 0x27, 0x82, 0x62, 0x4b, 0x0a, 0x83, 0x22,
-	0x8e, 0xdb, 0xc8, 0x81, 0xdb, 0x9e, 0x5a, 0x14, 0x75, 0xac, 0xc6, 0x21, 0x50, 0x3b, 0x2e, 0xf3,
-	0xd3, 0x02, 0x2d, 0x20, 0xd0, 0xe4, 0x4a, 0x5e, 0xd4, 0x22, 0x59, 0x72, 0xa5, 0x44, 0xb7, 0x1e,
-	0x8b, 0x00, 0xed, 0x83, 0xf4, 0xdc, 0x07, 0xe8, 0x31, 0xc7, 0x1e, 0x7b, 0x32, 0x1a, 0xa1, 0xcf,
-	0x51, 0x14, 0x5c, 0x2e, 0x29, 0x72, 0x43, 0x4a, 0x6a, 0x73, 0x49, 0x4e, 0x12, 0x67, 0x66, 0x67,
-	0x67, 0xbe, 0x9d, 0xf9, 0x38, 0x4b, 0x38, 0xe9, 0x12, 0x7a, 0xd1, 0x3f, 0x6f, 0x1a, 0x76, 0x6f,
-	0xff, 0x84, 0x18, 0xae, 0xed, 0xd9, 0x1d, 0xba, 0x7f, 0x61, 0x78, 0xde, 0x05, 0xe9, 0xed, 0x1b,
-	0x3d, 0x73, 0xdf, 0x32, 0x1c, 0xd7, 0x7e, 0x3e, 0x0c, 0x7f, 0xbb, 0xae, 0x63, 0xec, 0x5b, 0x98,
-	0x3e, 0xb3, 0xdd, 0xef, 0x0d, 0xdb, 0xea, 0x90, 0x2e, 0x13, 0x37, 0x1d, 0xd7, 0xa6, 0x36, 0x92,
-	0x63, 0x56, 0xca, 0x6f, 0x12, 0xd4, 0x5b, 0xf8, 0x12, 0x53, 0x7c, 0xaa, 0x1e, 0x3d, 0x25, 0x2e,
-	0xed, 0xeb, 0x97, 0xf7, 0xfb, 0x96, 0x41, 0x89, 0x6d, 0x69, 0xf8, 0x87, 0x3e, 0xf6, 0x28, 0x3a,
-	0x80, 0x65, 0x4b, 0xef, 0x61, 0xcf, 0xd1, 0x0d, 0xdc, 0x26, 0x66, 0x45, 0x6a, 0x48, 0xbb, 0xc5,
-	0x7b, 0xab, 0xa3, 0xab, 0xba, 0x7c, 0x1a, 0xca, 0xd5, 0x96, 0x26, 0x47, 0x46, 0xaa, 0xe9, 0xaf,
-	0x31, 0x6c, 0x8b, 0xea, 0xc4, 0xc2, 0xae, 0xbf, 0x26, 0x3f, 0x5e, 0x73, 0x14, 0xca, 0xfd, 0x35,
-	0x91, 0x91, 0x6a, 0xa2, 0xdb, 0x50, 0x34, 0xf1, 0x80, 0x04, 0x9b, 0xcc, 0xb1, 0x05, 0xcb, 0xa3,
-	0xab, 0x7a, 0xa1, 0xc5, 0x84, 0x6a, 0x4b, 0x2b, 0x04, 0x6a, 0xd5, 0x54, 0x14, 0x68, 0x64, 0x47,
-	0xed, 0x39, 0xb6, 0xe5, 0x61, 0xe5, 0xf7, 0x3c, 0x6c, 0x1f, 0x9a, 0xe6, 0xbb, 0x94, 0x17, 0xaa,
-	0x01, 0xf4, 0x74, 0x43, 0x37, 0x4d, 0x17, 0x7b, 0x5e, 0x65, 0xde, 0xb7, 0xd5, 0x62, 0x12, 0xb4,
-	0x0d, 0x45, 0xe2, 0x84, 0xea, 0x05, 0xa6, 0x1e, 0x0b, 0xd0, 0xc7, 0xb0, 0x15, 0x3d, 0xb4, 0x1d,
-	0x17, 0x77, 0xc8, 0xf3, 0x4b, 0x6c, 0x75, 0xe9, 0x45, 0x65, 0xb1, 0x21, 0xed, 0x96, 0xb4, 0xcd,
-	0x48, 0x7b, 0x16, 0x53, 0xa2, 0x0a, 0x2c, 0x75, 0x75, 0x8a, 0x9f, 0xe9, 0xc3, 0xca, 0x12, 0x73,
-	0x19, 0x3e, 0x2a, 0x75, 0xd8, 0xc9, 0x40, 0x90, 0x63, 0xfc, 0x4b, 0x1e, 0x56, 0x0f, 0x3d, 0x8f,
-	0x74, 0xad, 0xa7, 0xf7, 0x63, 0xb0, 0x26, 0x20, 0x92, 0xfe, 0x2b, 0x44, 0xf9, 0x89, 0x10, 0x7d,
-	0x04, 0x5b, 0x83, 0x20, 0x9a, 0x76, 0x87, 0x87, 0xd3, 0x26, 0x96, 0x89, 0x9f, 0x33, 0x68, 0x4b,
-	0xda, 0xc6, 0x20, 0x19, 0xab, 0xea, 0xeb, 0xd0, 0x03, 0x90, 0xf9, 0x06, 0x74, 0xe8, 0x60, 0x86,
-	0xec, 0xca, 0xc1, 0xad, 0x66, 0xac, 0x15, 0x9a, 0x42, 0x1e, 0xcd, 0x60, 0xef, 0xc7, 0x43, 0x07,
-	0x6b, 0x60, 0x46, 0xff, 0x95, 0x6d, 0x80, 0xb1, 0x06, 0xad, 0x00, 0xa8, 0x56, 0x87, 0x58, 0xe4,
-	0x5c, 0xb7, 0xcc, 0x72, 0x4e, 0xd9, 0x83, 0xf2, 0xd8, 0x4f, 0x00, 0x12, 0xda, 0x82, 0x7c, 0x04,
-	0xc3, 0xe2, 0xe8, 0xaa, 0x9e, 0x57, 0x5b, 0x5a, 0x9e, 0x98, 0x0c, 0x3c, 0x0d, 0xf7, 0xec, 0x01,
-	0x7e, 0xf7, 0xc1, 0x13, 0xf2, 0xf8, 0x7f, 0xe0, 0x21, 0x28, 0x8f, 0xfd, 0xf0, 0x0a, 0x7b, 0x21,
-	0x41, 0x29, 0xa8, 0xc1, 0x37, 0x81, 0xa8, 0x01, 0x8b, 0x16, 0x31, 0xc6, 0xf8, 0x14, 0x47, 0x57,
-	0xf5, 0x85, 0x53, 0x62, 0xa8, 0x2d, 0x6d, 0xc1, 0x22, 0x86, 0x6a, 0xa2, 0x9b, 0x50, 0xc2, 0x96,
-	0xe9, 0xd8, 0xc4, 0xa2, 0x6d, 0xbf, 0xe1, 0x83, 0x46, 0xd5, 0x96, 0x43, 0xa1, 0xcf, 0x08, 0x4a,
-	0x19, 0x56, 0xc2, 0x58, 0x78, 0x78, 0x7f, 0x4b, 0x50, 0x3e, 0xb1, 0x4d, 0xd2, 0x19, 0xbe, 0x15,
-	0x11, 0xa2, 0x27, 0xb0, 0x4e, 0xec, 0x41, 0xdb, 0xb1, 0x2f, 0x89, 0x31, 0x6c, 0x7b, 0x98, 0x52,
-	0x62, 0x75, 0x03, 0x26, 0x91, 0x0f, 0xde, 0x4b, 0x1c, 0x99, 0x6a, 0x0f, 0xbe, 0xe0, 0x4b, 0xcf,
-	0x98, 0xf9, 0xa3, 0xc0, 0x5a, 0x5b, 0x23, 0xf6, 0x20, 0x21, 0xf1, 0x94, 0x75, 0x58, 0x8b, 0x65,
-	0xc9, 0x73, 0xff, 0x59, 0x82, 0x72, 0xc4, 0xc2, 0x6f, 0xc1, 0xe9, 0xac, 0xc3, 0x5a, 0x2c, 0x1c,
-	0x1e, 0xe4, 0x4f, 0x73, 0xb0, 0x71, 0xe4, 0x62, 0x9d, 0xe2, 0xd3, 0xe0, 0x85, 0x18, 0x06, 0x8a,
-	0x60, 0x9e, 0x79, 0x62, 0x01, 0x6a, 0xec, 0x3f, 0x3a, 0x84, 0xf9, 0x9e, 0x6d, 0x62, 0x16, 0xc6,
-	0xca, 0xc1, 0x9d, 0x04, 0x5c, 0x69, 0x4e, 0x9a, 0xfc, 0xf1, 0xc4, 0x36, 0xb1, 0xc6, 0x96, 0xa2,
-	0x3a, 0xc8, 0xde, 0x33, 0x42, 0x8d, 0x8b, 0x78, 0x9c, 0x10, 0x88, 0xd8, 0x09, 0x1d, 0x33, 0x0a,
-	0xef, 0xc5, 0x5b, 0x69, 0x6f, 0xfa, 0x46, 0xaa, 0xa3, 0xf7, 0x58, 0x37, 0x15, 0x08, 0xff, 0xe7,
-	0xf7, 0xb2, 0xd7, 0x3f, 0xb7, 0x30, 0x6d, 0xfb, 0xb4, 0x1e, 0xe3, 0xfc, 0xca, 0x42, 0x63, 0x6e,
-	0xb7, 0xa8, 0x6d, 0x04, 0x5a, 0x95, 0x2b, 0x03, 0xca, 0x47, 0xb7, 0x60, 0xd5, 0xc4, 0x1d, 0xbd,
-	0x7f, 0x49, 0xdb, 0x21, 0xe9, 0x2f, 0xb2, 0x18, 0x57, 0xb8, 0xf8, 0x98, 0x73, 0x7f, 0x13, 0xe4,
-	0x58, 0x76, 0x68, 0x15, 0xe4, 0xc7, 0xae, 0x6e, 0x79, 0x8e, 0xee, 0x62, 0x8b, 0x96, 0x73, 0x42,
-	0xf3, 0x4a, 0x4a, 0x03, 0x0a, 0x61, 0x90, 0x08, 0x60, 0xf1, 0x11, 0xd5, 0x29, 0x31, 0xca, 0x39,
-	0x54, 0x80, 0xf9, 0xd6, 0x83, 0xa3, 0xb3, 0xb2, 0xa4, 0xec, 0xc3, 0xa6, 0x90, 0xdb, 0x14, 0x82,
-	0xfc, 0x14, 0x76, 0xce, 0x6c, 0x97, 0x1d, 0x6e, 0x6a, 0xa5, 0xa2, 0xeb, 0x50, 0x74, 0x6c, 0x97,
-	0x97, 0x44, 0x70, 0x90, 0x05, 0x87, 0xaf, 0x50, 0x7e, 0x95, 0xa0, 0x92, 0x55, 0xe3, 0x68, 0x0f,
-	0xca, 0xaa, 0x3d, 0x78, 0xd8, 0xe9, 0x5c, 0xda, 0xba, 0xf9, 0x35, 0x26, 0xdd, 0x0b, 0xca, 0x1c,
-	0x94, 0xb4, 0xd7, 0xe4, 0xe8, 0x2e, 0xac, 0x7f, 0xd5, 0xc7, 0x7d, 0x7c, 0xa6, 0x13, 0xd7, 0xe3,
-	0x07, 0x82, 0x83, 0x5a, 0x2d, 0x69, 0x69, 0x2a, 0x7f, 0x85, 0x6a, 0x51, 0xec, 0xba, 0x7d, 0x87,
-	0xfa, 0xe8, 0xb9, 0xba, 0x4f, 0xa6, 0x9c, 0x63, 0xd3, 0x54, 0xca, 0x3f, 0xf9, 0x10, 0x9c, 0x30,
-	0xde, 0x49, 0x75, 0x9a, 0x1c, 0x13, 0xf2, 0x93, 0xc7, 0x84, 0xb9, 0xd9, 0xc7, 0x84, 0x60, 0xe0,
-	0xc8, 0x18, 0x13, 0x6e, 0xc0, 0x32, 0x9f, 0x29, 0x03, 0xbc, 0x83, 0xf1, 0x43, 0xe6, 0x32, 0x56,
-	0xdb, 0xe7, 0x70, 0xcd, 0x87, 0xdf, 0x57, 0x0b, 0x14, 0xc4, 0x8a, 0x4c, 0x16, 0x2a, 0x7d, 0xe2,
-	0xe1, 0x6a, 0x9b, 0xa1, 0xab, 0xe4, 0xc9, 0x65, 0x30, 0xdc, 0xd2, 0x1b, 0x32, 0xdc, 0x5d, 0xd8,
-	0x12, 0xf1, 0x9f, 0x52, 0x9d, 0xdf, 0x01, 0x3a, 0x34, 0xcd, 0x59, 0x8e, 0x4b, 0x1c, 0x34, 0xf3,
-	0xd3, 0x07, 0x4d, 0x65, 0x13, 0xd6, 0x13, 0xde, 0x39, 0x9d, 0xbd, 0x0f, 0x9b, 0x01, 0xc7, 0xcd,
-	0xb0, 0xaf, 0x52, 0x81, 0x2d, 0xd1, 0x98, 0xbb, 0xd9, 0x83, 0x0d, 0x4e, 0x95, 0x53, 0x49, 0x51,
-	0xb9, 0x16, 0x6e, 0x29, 0xb4, 0xad, 0xb2, 0x0b, 0xe8, 0x18, 0xd3, 0x59, 0x02, 0x19, 0xc2, 0x7a,
-	0xc2, 0x72, 0x32, 0xb2, 0x91, 0x8b, 0x7c, 0x0c, 0xc3, 0x0a, 0x2c, 0xf1, 0x4a, 0xe3, 0x05, 0x1d,
-	0x3e, 0xfa, 0xc5, 0x1e, 0x01, 0xc7, 0x2b, 0x78, 0x2c, 0x50, 0x6e, 0xc1, 0xda, 0x31, 0xa6, 0x33,
-	0xa4, 0xf9, 0x39, 0xcb, 0x66, 0x46, 0x6a, 0x4a, 0x0b, 0xd1, 0x3f, 0xb2, 0x58, 0x96, 0x21, 0x1d,
-	0x28, 0x4f, 0x61, 0x23, 0x29, 0xe6, 0xae, 0x3f, 0x83, 0x62, 0xf8, 0xfa, 0xf2, 0x2a, 0x52, 0x63,
-	0x6e, 0x57, 0x3e, 0x68, 0x24, 0xca, 0x37, 0x05, 0x32, 0x6d, 0xbc, 0x44, 0xd9, 0x88, 0x07, 0x1c,
-	0xed, 0xa6, 0xb1, 0x20, 0xc6, 0x52, 0xbe, 0xd9, 0x27, 0x50, 0xe0, 0x78, 0x85, 0x7b, 0xd5, 0xc5,
-	0xbd, 0x84, 0xd4, 0xb5, 0x68, 0xc1, 0xc1, 0x0b, 0x19, 0x10, 0xd7, 0x1e, 0xb1, 0xeb, 0xe4, 0x99,
-	0xbf, 0x0e, 0x1d, 0xc1, 0x62, 0x30, 0x0d, 0xa1, 0x6a, 0x72, 0x90, 0x8e, 0x8f, 0x6b, 0xd5, 0xeb,
-	0xa9, 0x3a, 0x5e, 0x42, 0x39, 0xf4, 0x25, 0x14, 0xa3, 0xc9, 0x02, 0xed, 0x24, 0x6c, 0xc5, 0xb9,
-	0xaa, 0x5a, 0xcb, 0x52, 0xc7, 0xbd, 0x45, 0x23, 0x80, 0xe0, 0x4d, 0x9c, 0x54, 0x04, 0x6f, 0xaf,
-	0x4f, 0x0e, 0x39, 0xf4, 0x0d, 0x94, 0x12, 0x2f, 0x2c, 0x74, 0x63, 0xea, 0x8b, 0xba, 0xaa, 0x4c,
-	0x32, 0x89, 0x3c, 0x7f, 0x0b, 0x2b, 0x49, 0xb6, 0x41, 0x69, 0xeb, 0x84, 0xd6, 0xaa, 0xde, 0x9c,
-	0x68, 0x13, 0x39, 0xd7, 0x40, 0x8e, 0x51, 0x07, 0xaa, 0x8b, 0x07, 0x20, 0xba, 0x6d, 0x64, 0x1b,
-	0xc4, 0x03, 0x4e, 0x52, 0x89, 0x10, 0x70, 0x2a, 0x29, 0x09, 0x01, 0x67, 0x70, 0x11, 0xc3, 0x39,
-	0xc1, 0x30, 0x02, 0xce, 0x69, 0x4c, 0x55, 0x55, 0x26, 0x99, 0xc4, 0xa1, 0x88, 0x75, 0x11, 0xaa,
-	0x67, 0xf7, 0x57, 0x1a, 0x14, 0x29, 0x0d, 0xa8, 0xe4, 0xd0, 0x43, 0x80, 0x71, 0xb7, 0xa0, 0x5a,
-	0x66, 0x1b, 0x05, 0x1e, 0xa7, 0xb5, 0x99, 0x92, 0x43, 0x4f, 0x60, 0x39, 0x4e, 0x10, 0x28, 0x33,
-	0x88, 0xb0, 0xc9, 0xab, 0x37, 0x26, 0x58, 0x08, 0xb9, 0x87, 0x4c, 0x80, 0xb2, 0x02, 0xf1, 0x32,
-	0x73, 0x17, 0x49, 0x44, 0xc9, 0x21, 0x15, 0x0a, 0xe1, 0xf5, 0x16, 0x6d, 0x4f, 0xba, 0x3d, 0x57,
-	0x77, 0x32, 0xb4, 0x71, 0x57, 0xe1, 0x65, 0x4f, 0x70, 0x25, 0xdc, 0x25, 0x05, 0x57, 0xaf, 0xdd,
-	0x10, 0x73, 0xc8, 0x81, 0xcd, 0xd4, 0xcf, 0x14, 0xe8, 0x76, 0x0a, 0xf7, 0xa4, 0x7f, 0x0c, 0xaa,
-	0xee, 0xcd, 0x62, 0x1a, 0xed, 0x38, 0x84, 0x4a, 0xd6, 0xf7, 0x27, 0xf4, 0x41, 0x3a, 0xaf, 0x64,
-	0xec, 0x7b, 0x67, 0x46, 0xeb, 0x70, 0xeb, 0x7b, 0x95, 0x97, 0xaf, 0x6a, 0xb9, 0x3f, 0x5f, 0xd5,
-	0x72, 0x3f, 0x8e, 0x6a, 0xd2, 0xcb, 0x51, 0x4d, 0xfa, 0x63, 0x54, 0x93, 0xfe, 0x1a, 0xd5, 0xa4,
-	0xf3, 0x45, 0xf6, 0x7d, 0xef, 0xc3, 0x7f, 0x03, 0x00, 0x00, 0xff, 0xff, 0xee, 0x20, 0x20, 0xe7,
-	0x30, 0x14, 0x00, 0x00,
+	// 1470 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x58, 0x4b, 0x6f, 0xe3, 0xd4,
+	0x17, 0x8f, 0xd3, 0x36, 0x93, 0x9c, 0x34, 0x6d, 0x7a, 0xf3, 0x68, 0xfe, 0x99, 0x99, 0x24, 0xe3,
+	0xf9, 0xc3, 0x94, 0x01, 0x5a, 0x08, 0x0f, 0x21, 0x81, 0x10, 0x9d, 0x86, 0x29, 0x46, 0xb4, 0x53,
+	0x79, 0x5e, 0x48, 0x20, 0x2c, 0xd7, 0xbe, 0x49, 0xae, 0x68, 0x6c, 0x8f, 0x7d, 0x93, 0x4e, 0x76,
+	0xac, 0x91, 0xf8, 0x08, 0x6c, 0xd9, 0xb2, 0x60, 0xcf, 0x7a, 0x96, 0x2c, 0x58, 0xb0, 0xaa, 0x98,
+	0x88, 0x4f, 0xc1, 0x0a, 0xf9, 0xfa, 0x11, 0xfb, 0xd6, 0x79, 0xa0, 0x11, 0xd2, 0xac, 0x12, 0x9f,
+	0x73, 0xee, 0xb9, 0xbf, 0x7b, 0x1e, 0xbf, 0x7b, 0x6c, 0x38, 0xea, 0x11, 0xda, 0x1f, 0x9e, 0xee,
+	0x6a, 0xe6, 0x60, 0xef, 0x88, 0x68, 0xb6, 0xe9, 0x98, 0x5d, 0xba, 0xd7, 0xd7, 0x1c, 0xa7, 0x4f,
+	0x06, 0x7b, 0xda, 0x40, 0xdf, 0x33, 0x34, 0xcb, 0x36, 0x9f, 0x8e, 0x83, 0xdf, 0x9e, 0x6d, 0x69,
+	0x7b, 0x06, 0xa6, 0xe7, 0xa6, 0xfd, 0xad, 0x66, 0x1a, 0x5d, 0xd2, 0x63, 0xe2, 0x5d, 0xcb, 0x36,
+	0xa9, 0x89, 0xf2, 0x11, 0x2b, 0xd1, 0x80, 0x6a, 0x07, 0x9f, 0x61, 0x8a, 0x8f, 0xa5, 0x83, 0xc7,
+	0x84, 0xf6, 0x1f, 0xdd, 0x95, 0xf1, 0x93, 0x21, 0x76, 0x28, 0x6a, 0xc3, 0xba, 0x66, 0x1a, 0x54,
+	0x25, 0x06, 0xb6, 0x15, 0xa2, 0xd7, 0x84, 0x96, 0xb0, 0x93, 0xbb, 0xb3, 0x39, 0xb9, 0x68, 0xe6,
+	0x0f, 0x02, 0xb9, 0xd4, 0x91, 0xf3, 0xa1, 0x91, 0xa4, 0xa3, 0x16, 0x64, 0x0c, 0xa2, 0xb9, 0xd6,
+	0x69, 0x66, 0x9d, 0x9b, 0x5c, 0x34, 0xd7, 0x8e, 0x89, 0x26, 0x75, 0xe4, 0x35, 0x83, 0x68, 0x92,
+	0x2e, 0xfe, 0x0f, 0xb6, 0x2f, 0xed, 0xe7, 0x58, 0xa6, 0xe1, 0x60, 0xf1, 0xc7, 0x34, 0x94, 0xf6,
+	0x75, 0x3d, 0x09, 0x88, 0xa1, 0x0e, 0xb0, 0x63, 0xa9, 0x1a, 0xe6, 0x80, 0x1c, 0x07, 0x72, 0x17,
+	0x48, 0x68, 0x24, 0xe9, 0x97, 0xc0, 0xa7, 0xff, 0x15, 0xf8, 0x95, 0x64, 0xf0, 0xe8, 0x1a, 0xe4,
+	0x88, 0xa5, 0xea, 0xba, 0x8d, 0x1d, 0xa7, 0xb6, 0xea, 0x1a, 0xc9, 0x53, 0x01, 0x7a, 0x0f, 0xaa,
+	0xe1, 0x83, 0x62, 0xd9, 0xb8, 0x4b, 0x9e, 0x9e, 0x61, 0xa3, 0x47, 0xfb, 0xb5, 0xb5, 0x96, 0xb0,
+	0x53, 0x90, 0x2b, 0xa1, 0xf6, 0x24, 0xa2, 0x44, 0xb7, 0x60, 0x53, 0xc7, 0x5d, 0x75, 0x78, 0x46,
+	0x95, 0x9e, 0x4a, 0xf1, 0xb9, 0x3a, 0xae, 0x65, 0x98, 0xeb, 0x0d, 0x5f, 0x7c, 0xe8, 0x49, 0xc5,
+	0x2a, 0x94, 0xe3, 0xe1, 0xf1, 0xe3, 0xf6, 0x93, 0x00, 0x9b, 0xfb, 0x8e, 0x43, 0x7a, 0xc6, 0x8b,
+	0x25, 0xef, 0x35, 0xc8, 0xe9, 0x78, 0x44, 0xbc, 0x20, 0x7b, 0x01, 0x5b, 0x9f, 0x5c, 0x34, 0xb3,
+	0x1d, 0x26, 0x94, 0x3a, 0x72, 0xd6, 0x53, 0x4b, 0x3a, 0x7a, 0x17, 0xaa, 0x23, 0x62, 0xd3, 0xa1,
+	0x7a, 0xa6, 0x74, 0x87, 0x86, 0x46, 0x89, 0x69, 0x28, 0xc4, 0xd0, 0xf1, 0x53, 0x16, 0xba, 0x82,
+	0x5c, 0xf6, 0xb5, 0x77, 0x7d, 0xa5, 0xe4, 0xea, 0xc4, 0xdb, 0x50, 0x9c, 0xe2, 0xf4, 0xc0, 0xa3,
+	0x2a, 0xa4, 0x43, 0x78, 0x99, 0xc9, 0x45, 0x33, 0x2d, 0x75, 0xe4, 0x34, 0xd1, 0xd9, 0xa1, 0x64,
+	0x3c, 0x30, 0x47, 0xf8, 0x25, 0x3f, 0x14, 0x82, 0xe2, 0x14, 0xa7, 0x9f, 0x91, 0xef, 0x05, 0x28,
+	0x78, 0xa9, 0xfa, 0x4f, 0x9b, 0x09, 0xdd, 0x84, 0x02, 0x36, 0x74, 0xcb, 0x24, 0x06, 0x55, 0xdc,
+	0xea, 0xf7, 0x0a, 0x57, 0x5e, 0x0f, 0x84, 0x6e, 0x7b, 0x88, 0x45, 0xd8, 0x08, 0xb0, 0xf8, 0xf0,
+	0xfe, 0x12, 0xa0, 0x78, 0x64, 0xea, 0xa4, 0x3b, 0x7e, 0x29, 0x10, 0xa2, 0x87, 0x50, 0x22, 0xe6,
+	0x48, 0xb1, 0xcc, 0x33, 0xa2, 0x8d, 0x15, 0x07, 0x53, 0x4a, 0x8c, 0x9e, 0xd7, 0x60, 0xf9, 0xf6,
+	0x2b, 0xbb, 0x11, 0xba, 0xda, 0x95, 0xcc, 0xd1, 0xa7, 0xfe, 0xd2, 0x13, 0x66, 0x7e, 0xdf, 0xb3,
+	0x96, 0xb7, 0x88, 0x39, 0x8a, 0x49, 0x1c, 0xb1, 0x04, 0x5b, 0x91, 0x53, 0xfa, 0x67, 0xff, 0x41,
+	0x80, 0x62, 0x48, 0x40, 0x2f, 0x41, 0x76, 0x4a, 0xb0, 0x15, 0x81, 0xe3, 0x83, 0xfc, 0x3b, 0x0d,
+	0xe5, 0x03, 0x1b, 0xab, 0x14, 0x1f, 0x7b, 0x24, 0x1e, 0x00, 0x45, 0xb0, 0xca, 0x3c, 0x31, 0x80,
+	0x32, 0xfb, 0x8f, 0xf6, 0x61, 0x75, 0x60, 0xea, 0x98, 0xc1, 0xd8, 0x68, 0xbf, 0x19, 0x0b, 0x57,
+	0x92, 0x93, 0x5d, 0xff, 0xf1, 0xc8, 0xd4, 0xb1, 0xcc, 0x96, 0xa2, 0x26, 0xe4, 0x9d, 0x73, 0x42,
+	0xb5, 0x7e, 0x14, 0x27, 0x78, 0x22, 0x96, 0xa1, 0x43, 0x46, 0x7c, 0x03, 0x85, 0x8e, 0x2d, 0xcc,
+	0xf2, 0xb2, 0xd1, 0xbe, 0xbd, 0x78, 0x23, 0xc9, 0x52, 0x07, 0x0f, 0xc6, 0x16, 0x96, 0xb3, 0xc4,
+	0xff, 0x87, 0xde, 0x87, 0x6d, 0x67, 0x78, 0x6a, 0x60, 0xaa, 0xf0, 0x54, 0x59, 0x5b, 0x6b, 0xad,
+	0xec, 0xe4, 0xe4, 0x8a, 0xa7, 0x96, 0xe2, 0x54, 0xb9, 0x3c, 0x49, 0x36, 0x20, 0x1f, 0x39, 0x1f,
+	0xda, 0x84, 0xfc, 0x03, 0x5b, 0x35, 0x1c, 0x4b, 0xb5, 0xb1, 0x41, 0x8b, 0x29, 0xb1, 0x05, 0xd9,
+	0x00, 0x16, 0x02, 0xc8, 0xdc, 0xa7, 0x2a, 0x25, 0x5a, 0x31, 0x85, 0xb2, 0xb0, 0xda, 0xf9, 0xec,
+	0xe0, 0xa4, 0x28, 0x88, 0x7b, 0x50, 0xe1, 0x4e, 0xb3, 0x80, 0xaa, 0x3e, 0x82, 0xeb, 0x27, 0xa6,
+	0xcd, 0xd2, 0x99, 0x58, 0x9b, 0xe8, 0x2a, 0xe4, 0x2c, 0xd3, 0xf6, 0x8b, 0xc0, 0x4b, 0x5d, 0xd6,
+	0xf2, 0x57, 0x88, 0x3f, 0x0b, 0x50, 0x9b, 0x55, 0xd5, 0xe8, 0x0d, 0x40, 0x6e, 0x67, 0x98, 0xdd,
+	0xee, 0x99, 0xa9, 0xea, 0xca, 0x39, 0x26, 0xbd, 0x3e, 0x65, 0x2e, 0x0a, 0x72, 0x91, 0x98, 0xa3,
+	0x7b, 0x9e, 0xe2, 0x31, 0x93, 0xa3, 0x36, 0x54, 0x9e, 0x0c, 0xf1, 0x10, 0x2b, 0x96, 0x4a, 0x6c,
+	0x47, 0xb1, 0xbd, 0x34, 0x60, 0xaf, 0x42, 0x0b, 0x72, 0x89, 0x29, 0x4f, 0x5c, 0x9d, 0x1c, 0xa8,
+	0xd0, 0xdb, 0x50, 0x26, 0x06, 0xc5, 0xb6, 0x3d, 0xb4, 0xa8, 0xe2, 0x16, 0x83, 0xad, 0xba, 0xdc,
+	0xe6, 0x53, 0x5e, 0x29, 0xd4, 0x1d, 0x85, 0x2a, 0x51, 0x07, 0xe8, 0x18, 0x4e, 0x00, 0xf1, 0x55,
+	0xd8, 0x74, 0xb0, 0x3d, 0x72, 0x1b, 0xc7, 0x52, 0xdc, 0xa4, 0x39, 0x35, 0x81, 0x65, 0xb2, 0xe0,
+	0x89, 0x25, 0x6b, 0xdf, 0x15, 0xa2, 0x2a, 0x64, 0x74, 0x73, 0xa0, 0x12, 0xc3, 0xeb, 0x17, 0xd9,
+	0x7f, 0x72, 0xe5, 0x0e, 0x56, 0x6d, 0xad, 0x5f, 0x5b, 0x61, 0xcb, 0xfc, 0x27, 0xf1, 0xd7, 0x95,
+	0x20, 0x0f, 0x41, 0x68, 0xe6, 0x35, 0x41, 0x03, 0x60, 0xa0, 0x6a, 0xc1, 0xd5, 0xec, 0xed, 0x10,
+	0x91, 0xc4, 0x6f, 0xee, 0x95, 0xe5, 0x6f, 0x6e, 0xef, 0x92, 0x9f, 0x71, 0x73, 0xdf, 0x80, 0x75,
+	0x7f, 0xc8, 0xf2, 0x52, 0xbb, 0xc6, 0x8c, 0xf3, 0xbe, 0x8c, 0x35, 0xce, 0x29, 0x6c, 0xbb, 0x99,
+	0x76, 0xd5, 0x1c, 0xbf, 0xb1, 0xfa, 0xcd, 0x73, 0x6d, 0x34, 0xb7, 0x8e, 0xe4, 0x4a, 0xe0, 0x2a,
+	0x5e, 0x24, 0x33, 0xe8, 0xf3, 0xca, 0x8b, 0xd1, 0x27, 0xfa, 0x00, 0xf2, 0xba, 0xe1, 0x84, 0x70,
+	0x8b, 0xcc, 0xdd, 0x76, 0xcc, 0xdd, 0xb4, 0x0c, 0x64, 0xd0, 0xc3, 0xff, 0x9f, 0xaf, 0x66, 0xb3,
+	0xc5, 0xa2, 0xf8, 0x16, 0x54, 0xf9, 0xfc, 0x2d, 0x68, 0xa4, 0xaf, 0x01, 0xed, 0xeb, 0xfa, 0x32,
+	0xe9, 0xe6, 0x47, 0xc2, 0xf4, 0xe2, 0x91, 0x50, 0xac, 0xb0, 0xe9, 0x92, 0x07, 0x23, 0xbe, 0x0e,
+	0x15, 0x8f, 0x80, 0x97, 0xd8, 0x57, 0xac, 0x05, 0xd3, 0xf2, 0x25, 0x37, 0xb7, 0xa1, 0xec, 0xf3,
+	0xf8, 0x42, 0xc6, 0x16, 0xb7, 0x83, 0x2d, 0x39, 0x86, 0x11, 0x77, 0x00, 0x1d, 0x62, 0xba, 0x0c,
+	0x90, 0x5f, 0x04, 0x28, 0xc5, 0x4c, 0xe7, 0x87, 0x36, 0xf4, 0x91, 0x8e, 0x04, 0xb1, 0x06, 0x57,
+	0xfc, 0x52, 0xf5, 0x3b, 0x22, 0x78, 0x74, 0xbb, 0x25, 0x8c, 0x5c, 0x30, 0xe7, 0x86, 0x02, 0xbe,
+	0x30, 0xd6, 0x96, 0x2e, 0x0c, 0xf1, 0x16, 0x6c, 0x1d, 0x62, 0xba, 0x44, 0x84, 0x3e, 0x61, 0x81,
+	0x58, 0x92, 0x80, 0x93, 0x0e, 0xe7, 0x66, 0x3b, 0x12, 0x9f, 0x80, 0xf0, 0xc4, 0x47, 0x50, 0x8e,
+	0x8b, 0x7d, 0xd7, 0x1f, 0x43, 0x2e, 0xb8, 0x96, 0x3d, 0xfe, 0xca, 0xb7, 0x5b, 0xb1, 0x13, 0x25,
+	0x04, 0x5b, 0x9e, 0x2e, 0x11, 0xcb, 0x51, 0xc0, 0xe1, 0x6e, 0x32, 0x03, 0x31, 0x95, 0xfa, 0x9b,
+	0x7d, 0x08, 0x59, 0x3f, 0xd2, 0xc1, 0x5e, 0x4d, 0x7e, 0x2f, 0xee, 0xe8, 0x72, 0xb8, 0xa0, 0xfd,
+	0x3b, 0x00, 0xf2, 0xb5, 0x07, 0xec, 0xd5, 0xee, 0xc4, 0x5d, 0x87, 0x0e, 0x20, 0xe3, 0x4d, 0x79,
+	0xa8, 0x1e, 0xf3, 0x15, 0x1b, 0x43, 0xeb, 0x57, 0x13, 0x75, 0x7e, 0xf5, 0xa5, 0xd0, 0x17, 0x90,
+	0x0b, 0x27, 0x26, 0x74, 0x3d, 0x66, 0xcb, 0xcf, 0x8b, 0xf5, 0xc6, 0x2c, 0x75, 0xd4, 0x5b, 0x38,
+	0xda, 0x70, 0xde, 0xf8, 0x09, 0x8c, 0xf3, 0x76, 0x79, 0x22, 0x4a, 0xa1, 0x2f, 0xa1, 0x10, 0xbb,
+	0x96, 0xd1, 0x8d, 0x85, 0x03, 0x48, 0x5d, 0x9c, 0x67, 0x12, 0x7a, 0xfe, 0x0a, 0x36, 0xe2, 0x44,
+	0x85, 0x92, 0xd6, 0x71, 0x5d, 0x59, 0xbf, 0x39, 0xd7, 0x26, 0x74, 0x2e, 0x43, 0x3e, 0xc2, 0x3a,
+	0xa8, 0xc9, 0x27, 0x80, 0x77, 0xdb, 0x9a, 0x6d, 0x10, 0x05, 0x1c, 0x67, 0x21, 0x0e, 0x70, 0x22,
+	0x9f, 0x71, 0x80, 0x67, 0xd0, 0x18, 0x8b, 0x73, 0x8c, 0x9c, 0xb8, 0x38, 0x27, 0x91, 0x5c, 0x5d,
+	0x9c, 0x67, 0x12, 0x0d, 0x45, 0xa4, 0x8b, 0x50, 0x73, 0x76, 0x7f, 0x25, 0x85, 0x22, 0xa1, 0x01,
+	0xc5, 0x14, 0xba, 0x07, 0x30, 0xed, 0x16, 0xd4, 0x98, 0xd9, 0x46, 0x9e, 0xc7, 0x45, 0x6d, 0x26,
+	0xa6, 0xd0, 0x43, 0x58, 0x8f, 0x12, 0x04, 0x9a, 0x09, 0x22, 0x68, 0xf2, 0xfa, 0x8d, 0x39, 0x16,
+	0xdc, 0xd9, 0x03, 0x26, 0x40, 0xb3, 0x80, 0x38, 0x33, 0xcf, 0xce, 0x93, 0x88, 0x98, 0x42, 0x12,
+	0x64, 0x83, 0xd7, 0x69, 0x74, 0x2d, 0x5e, 0x36, 0xf1, 0xaf, 0x01, 0xf5, 0xeb, 0x33, 0xb4, 0x51,
+	0x57, 0xc1, 0x4b, 0x2c, 0xe7, 0x8a, 0x7b, 0x07, 0xe7, 0x5c, 0x5d, 0x7a, 0xf3, 0x65, 0x01, 0x8c,
+	0x7e, 0xa5, 0x40, 0xad, 0x04, 0xca, 0x89, 0x7d, 0xdf, 0xe1, 0x02, 0x98, 0xf8, 0x89, 0x23, 0x85,
+	0xbe, 0x81, 0x4d, 0xee, 0xbb, 0x11, 0xba, 0x99, 0xcc, 0x19, 0x71, 0xe7, 0xff, 0x9f, 0x6f, 0x14,
+	0xf8, 0xbf, 0x53, 0x7b, 0xf6, 0xbc, 0x91, 0xfa, 0xe3, 0x79, 0x23, 0xf5, 0xdd, 0xa4, 0x21, 0x3c,
+	0x9b, 0x34, 0x84, 0xdf, 0x26, 0x0d, 0xe1, 0xcf, 0x49, 0x43, 0x38, 0xcd, 0xb0, 0xaf, 0x66, 0xef,
+	0xfc, 0x13, 0x00, 0x00, 0xff, 0xff, 0x41, 0x34, 0x9c, 0xda, 0x86, 0x13, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1643,8 +1631,8 @@ type NetworkConfigProxyClient interface {
 	GetNetworks(ctx context.Context, in *GetNetworksRequest, opts ...grpc.CallOption) (*GetNetworksResponse, error)
 	AssignVF(ctx context.Context, in *AssignVFRequest, opts ...grpc.CallOption) (*AssignVFResponse, error)
 	RemoveVF(ctx context.Context, in *RemoveVFRequest, opts ...grpc.CallOption) (*RemoveVFResponse, error)
-	AddNICVirtualFunction(ctx context.Context, in *AddNICVirtualFunctionRequest, opts ...grpc.CallOption) (*AddNICVirtualFunctionResponse, error)
-	DeleteNICVirtualFunction(ctx context.Context, in *DeleteNICVirtualFunctionRequest, opts ...grpc.CallOption) (*DeleteNICVirtualFunctionResponse, error)
+	AddNICWithVF(ctx context.Context, in *AddNICWithVFRequest, opts ...grpc.CallOption) (*AddNICWithVFResponse, error)
+	DeleteNICWithVF(ctx context.Context, in *DeleteNICWithVFRequest, opts ...grpc.CallOption) (*DeleteNICWithVFResponse, error)
 }
 
 type networkConfigProxyClient struct {
@@ -1781,18 +1769,18 @@ func (c *networkConfigProxyClient) RemoveVF(ctx context.Context, in *RemoveVFReq
 	return out, nil
 }
 
-func (c *networkConfigProxyClient) AddNICVirtualFunction(ctx context.Context, in *AddNICVirtualFunctionRequest, opts ...grpc.CallOption) (*AddNICVirtualFunctionResponse, error) {
-	out := new(AddNICVirtualFunctionResponse)
-	err := c.cc.Invoke(ctx, "/ncproxygrpc.NetworkConfigProxy/AddNICVirtualFunction", in, out, opts...)
+func (c *networkConfigProxyClient) AddNICWithVF(ctx context.Context, in *AddNICWithVFRequest, opts ...grpc.CallOption) (*AddNICWithVFResponse, error) {
+	out := new(AddNICWithVFResponse)
+	err := c.cc.Invoke(ctx, "/ncproxygrpc.NetworkConfigProxy/AddNICWithVF", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *networkConfigProxyClient) DeleteNICVirtualFunction(ctx context.Context, in *DeleteNICVirtualFunctionRequest, opts ...grpc.CallOption) (*DeleteNICVirtualFunctionResponse, error) {
-	out := new(DeleteNICVirtualFunctionResponse)
-	err := c.cc.Invoke(ctx, "/ncproxygrpc.NetworkConfigProxy/DeleteNICVirtualFunction", in, out, opts...)
+func (c *networkConfigProxyClient) DeleteNICWithVF(ctx context.Context, in *DeleteNICWithVFRequest, opts ...grpc.CallOption) (*DeleteNICWithVFResponse, error) {
+	out := new(DeleteNICWithVFResponse)
+	err := c.cc.Invoke(ctx, "/ncproxygrpc.NetworkConfigProxy/DeleteNICWithVF", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1815,8 +1803,8 @@ type NetworkConfigProxyServer interface {
 	GetNetworks(context.Context, *GetNetworksRequest) (*GetNetworksResponse, error)
 	AssignVF(context.Context, *AssignVFRequest) (*AssignVFResponse, error)
 	RemoveVF(context.Context, *RemoveVFRequest) (*RemoveVFResponse, error)
-	AddNICVirtualFunction(context.Context, *AddNICVirtualFunctionRequest) (*AddNICVirtualFunctionResponse, error)
-	DeleteNICVirtualFunction(context.Context, *DeleteNICVirtualFunctionRequest) (*DeleteNICVirtualFunctionResponse, error)
+	AddNICWithVF(context.Context, *AddNICWithVFRequest) (*AddNICWithVFResponse, error)
+	DeleteNICWithVF(context.Context, *DeleteNICWithVFRequest) (*DeleteNICWithVFResponse, error)
 }
 
 func RegisterNetworkConfigProxyServer(s *grpc.Server, srv NetworkConfigProxyServer) {
@@ -2075,38 +2063,38 @@ func _NetworkConfigProxy_RemoveVF_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NetworkConfigProxy_AddNICVirtualFunction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AddNICVirtualFunctionRequest)
+func _NetworkConfigProxy_AddNICWithVF_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddNICWithVFRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NetworkConfigProxyServer).AddNICVirtualFunction(ctx, in)
+		return srv.(NetworkConfigProxyServer).AddNICWithVF(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/ncproxygrpc.NetworkConfigProxy/AddNICVirtualFunction",
+		FullMethod: "/ncproxygrpc.NetworkConfigProxy/AddNICWithVF",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NetworkConfigProxyServer).AddNICVirtualFunction(ctx, req.(*AddNICVirtualFunctionRequest))
+		return srv.(NetworkConfigProxyServer).AddNICWithVF(ctx, req.(*AddNICWithVFRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NetworkConfigProxy_DeleteNICVirtualFunction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteNICVirtualFunctionRequest)
+func _NetworkConfigProxy_DeleteNICWithVF_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteNICWithVFRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NetworkConfigProxyServer).DeleteNICVirtualFunction(ctx, in)
+		return srv.(NetworkConfigProxyServer).DeleteNICWithVF(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/ncproxygrpc.NetworkConfigProxy/DeleteNICVirtualFunction",
+		FullMethod: "/ncproxygrpc.NetworkConfigProxy/DeleteNICWithVF",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NetworkConfigProxyServer).DeleteNICVirtualFunction(ctx, req.(*DeleteNICVirtualFunctionRequest))
+		return srv.(NetworkConfigProxyServer).DeleteNICWithVF(ctx, req.(*DeleteNICWithVFRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2172,19 +2160,19 @@ var _NetworkConfigProxy_serviceDesc = grpc.ServiceDesc{
 			Handler:    _NetworkConfigProxy_RemoveVF_Handler,
 		},
 		{
-			MethodName: "AddNICVirtualFunction",
-			Handler:    _NetworkConfigProxy_AddNICVirtualFunction_Handler,
+			MethodName: "AddNICWithVF",
+			Handler:    _NetworkConfigProxy_AddNICWithVF_Handler,
 		},
 		{
-			MethodName: "DeleteNICVirtualFunction",
-			Handler:    _NetworkConfigProxy_DeleteNICVirtualFunction_Handler,
+			MethodName: "DeleteNICWithVF",
+			Handler:    _NetworkConfigProxy_DeleteNICWithVF_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "github.com/Microsoft/hcsshim/cmd/ncproxy/ncproxygrpc/networkconfigproxy.proto",
 }
 
-func (m *DeleteNICVirtualFunctionRequest) Marshal() (dAtA []byte, err error) {
+func (m *DeleteNICWithVFRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -2194,7 +2182,61 @@ func (m *DeleteNICVirtualFunctionRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *DeleteNICVirtualFunctionRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *DeleteNICWithVFRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.ContainerID) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.ContainerID)))
+		i += copy(dAtA[i:], m.ContainerID)
+	}
+	if len(m.NicID) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.NicID)))
+		i += copy(dAtA[i:], m.NicID)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *DeleteNICWithVFResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DeleteNICWithVFResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *AddNICWithVFRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AddNICWithVFRequest) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -2211,94 +2253,28 @@ func (m *DeleteNICVirtualFunctionRequest) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.ContainerID)))
 		i += copy(dAtA[i:], m.ContainerID)
 	}
-	if len(m.DeviceID) > 0 {
+	if len(m.NicID) > 0 {
 		dAtA[i] = 0x1a
 		i++
-		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.DeviceID)))
-		i += copy(dAtA[i:], m.DeviceID)
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *DeleteNICVirtualFunctionResponse) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *DeleteNICVirtualFunctionResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *AddNICVirtualFunctionRequest) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *AddNICVirtualFunctionRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.NamespaceID) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.NamespaceID)))
-		i += copy(dAtA[i:], m.NamespaceID)
-	}
-	if len(m.ContainerID) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.ContainerID)))
-		i += copy(dAtA[i:], m.ContainerID)
-	}
-	if len(m.DeviceID) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.DeviceID)))
-		i += copy(dAtA[i:], m.DeviceID)
-	}
-	if len(m.Macaddress) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.Macaddress)))
-		i += copy(dAtA[i:], m.Macaddress)
+		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.NicID)))
+		i += copy(dAtA[i:], m.NicID)
 	}
 	if len(m.Ipaddress) > 0 {
-		dAtA[i] = 0x2a
+		dAtA[i] = 0x22
 		i++
 		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.Ipaddress)))
 		i += copy(dAtA[i:], m.Ipaddress)
 	}
 	if m.IpaddressPrefixlength != 0 {
-		dAtA[i] = 0x30
+		dAtA[i] = 0x28
 		i++
 		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(m.IpaddressPrefixlength))
 	}
-	if len(m.Gateway) > 0 {
-		dAtA[i] = 0x3a
+	if len(m.DefaultGateway) > 0 {
+		dAtA[i] = 0x32
 		i++
-		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.Gateway)))
-		i += copy(dAtA[i:], m.Gateway)
+		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.DefaultGateway)))
+		i += copy(dAtA[i:], m.DefaultGateway)
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -2306,7 +2282,7 @@ func (m *AddNICVirtualFunctionRequest) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *AddNICVirtualFunctionResponse) Marshal() (dAtA []byte, err error) {
+func (m *AddNICWithVFResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -2316,7 +2292,7 @@ func (m *AddNICVirtualFunctionResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *AddNICVirtualFunctionResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *AddNICWithVFResponse) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -2358,11 +2334,6 @@ func (m *AssignVFRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x18
 		i++
 		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(m.VirtualFunctionIndex))
-	}
-	if m.DeviceType != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(m.DeviceType))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -2428,11 +2399,6 @@ func (m *RemoveVFRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x18
 		i++
 		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(m.VirtualFunctionIndex))
-	}
-	if m.DeviceType != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(m.DeviceType))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -2688,8 +2654,8 @@ func (m *CreateNetworkRequest) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(m.IpamType))
 	}
-	if len(m.SubnetIpadressPrefix) > 0 {
-		for _, s := range m.SubnetIpadressPrefix {
+	if len(m.SubnetIpaddressPrefix) > 0 {
+		for _, s := range m.SubnetIpaddressPrefix {
 			dAtA[i] = 0x2a
 			i++
 			l = len(s)
@@ -2805,6 +2771,63 @@ func (m *IovEndpointPolicySetting) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *DnsSetting) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DnsSetting) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.ServerIpAddrs) > 0 {
+		for _, s := range m.ServerIpAddrs {
+			dAtA[i] = 0xa
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.Domain) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.Domain)))
+		i += copy(dAtA[i:], m.Domain)
+	}
+	if len(m.Search) > 0 {
+		for _, s := range m.Search {
+			dAtA[i] = 0x1a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func (m *CreateEndpointRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -2869,6 +2892,18 @@ func (m *CreateEndpointRequest) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err
 		}
 		i += n3
+	}
+	if m.DnsSetting != nil {
+		dAtA[i] = 0x82
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(m.DnsSetting.Size()))
+		n4, err := m.DnsSetting.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -3119,6 +3154,16 @@ func (m *GetEndpointResponse) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(len(m.Namespace)))
 		i += copy(dAtA[i:], m.Namespace)
 	}
+	if m.DnsSetting != nil {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintNetworkconfigproxy(dAtA, i, uint64(m.DnsSetting.Size()))
+		n5, err := m.DnsSetting.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -3302,7 +3347,39 @@ func encodeVarintNetworkconfigproxy(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
-func (m *DeleteNICVirtualFunctionRequest) Size() (n int) {
+func (m *DeleteNICWithVFRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.ContainerID)
+	if l > 0 {
+		n += 1 + l + sovNetworkconfigproxy(uint64(l))
+	}
+	l = len(m.NicID)
+	if l > 0 {
+		n += 1 + l + sovNetworkconfigproxy(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *DeleteNICWithVFResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *AddNICWithVFRequest) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -3316,47 +3393,7 @@ func (m *DeleteNICVirtualFunctionRequest) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovNetworkconfigproxy(uint64(l))
 	}
-	l = len(m.DeviceID)
-	if l > 0 {
-		n += 1 + l + sovNetworkconfigproxy(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *DeleteNICVirtualFunctionResponse) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *AddNICVirtualFunctionRequest) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.NamespaceID)
-	if l > 0 {
-		n += 1 + l + sovNetworkconfigproxy(uint64(l))
-	}
-	l = len(m.ContainerID)
-	if l > 0 {
-		n += 1 + l + sovNetworkconfigproxy(uint64(l))
-	}
-	l = len(m.DeviceID)
-	if l > 0 {
-		n += 1 + l + sovNetworkconfigproxy(uint64(l))
-	}
-	l = len(m.Macaddress)
+	l = len(m.NicID)
 	if l > 0 {
 		n += 1 + l + sovNetworkconfigproxy(uint64(l))
 	}
@@ -3367,7 +3404,7 @@ func (m *AddNICVirtualFunctionRequest) Size() (n int) {
 	if m.IpaddressPrefixlength != 0 {
 		n += 1 + sovNetworkconfigproxy(uint64(m.IpaddressPrefixlength))
 	}
-	l = len(m.Gateway)
+	l = len(m.DefaultGateway)
 	if l > 0 {
 		n += 1 + l + sovNetworkconfigproxy(uint64(l))
 	}
@@ -3377,7 +3414,7 @@ func (m *AddNICVirtualFunctionRequest) Size() (n int) {
 	return n
 }
 
-func (m *AddNICVirtualFunctionResponse) Size() (n int) {
+func (m *AddNICWithVFResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -3405,9 +3442,6 @@ func (m *AssignVFRequest) Size() (n int) {
 	}
 	if m.VirtualFunctionIndex != 0 {
 		n += 1 + sovNetworkconfigproxy(uint64(m.VirtualFunctionIndex))
-	}
-	if m.DeviceType != 0 {
-		n += 1 + sovNetworkconfigproxy(uint64(m.DeviceType))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -3447,9 +3481,6 @@ func (m *RemoveVFRequest) Size() (n int) {
 	}
 	if m.VirtualFunctionIndex != 0 {
 		n += 1 + sovNetworkconfigproxy(uint64(m.VirtualFunctionIndex))
-	}
-	if m.DeviceType != 0 {
-		n += 1 + sovNetworkconfigproxy(uint64(m.DeviceType))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -3601,8 +3632,8 @@ func (m *CreateNetworkRequest) Size() (n int) {
 	if m.IpamType != 0 {
 		n += 1 + sovNetworkconfigproxy(uint64(m.IpamType))
 	}
-	if len(m.SubnetIpadressPrefix) > 0 {
-		for _, s := range m.SubnetIpadressPrefix {
+	if len(m.SubnetIpaddressPrefix) > 0 {
+		for _, s := range m.SubnetIpaddressPrefix {
 			l = len(s)
 			n += 1 + l + sovNetworkconfigproxy(uint64(l))
 		}
@@ -3670,6 +3701,34 @@ func (m *IovEndpointPolicySetting) Size() (n int) {
 	return n
 }
 
+func (m *DnsSetting) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.ServerIpAddrs) > 0 {
+		for _, s := range m.ServerIpAddrs {
+			l = len(s)
+			n += 1 + l + sovNetworkconfigproxy(uint64(l))
+		}
+	}
+	l = len(m.Domain)
+	if l > 0 {
+		n += 1 + l + sovNetworkconfigproxy(uint64(l))
+	}
+	if len(m.Search) > 0 {
+		for _, s := range m.Search {
+			l = len(s)
+			n += 1 + l + sovNetworkconfigproxy(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *CreateEndpointRequest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -3703,6 +3762,10 @@ func (m *CreateEndpointRequest) Size() (n int) {
 	if m.IovPolicySettings != nil {
 		l = m.IovPolicySettings.Size()
 		n += 1 + l + sovNetworkconfigproxy(uint64(l))
+	}
+	if m.DnsSetting != nil {
+		l = m.DnsSetting.Size()
+		n += 2 + l + sovNetworkconfigproxy(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -3852,6 +3915,10 @@ func (m *GetEndpointResponse) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovNetworkconfigproxy(uint64(l))
 	}
+	if m.DnsSetting != nil {
+		l = m.DnsSetting.Size()
+		n += 1 + l + sovNetworkconfigproxy(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -3967,51 +4034,49 @@ func sovNetworkconfigproxy(x uint64) (n int) {
 func sozNetworkconfigproxy(x uint64) (n int) {
 	return sovNetworkconfigproxy(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (this *DeleteNICVirtualFunctionRequest) String() string {
+func (this *DeleteNICWithVFRequest) String() string {
 	if this == nil {
 		return "nil"
 	}
-	s := strings.Join([]string{`&DeleteNICVirtualFunctionRequest{`,
-		`NamespaceID:` + fmt.Sprintf("%v", this.NamespaceID) + `,`,
+	s := strings.Join([]string{`&DeleteNICWithVFRequest{`,
 		`ContainerID:` + fmt.Sprintf("%v", this.ContainerID) + `,`,
-		`DeviceID:` + fmt.Sprintf("%v", this.DeviceID) + `,`,
+		`NicID:` + fmt.Sprintf("%v", this.NicID) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
 	return s
 }
-func (this *DeleteNICVirtualFunctionResponse) String() string {
+func (this *DeleteNICWithVFResponse) String() string {
 	if this == nil {
 		return "nil"
 	}
-	s := strings.Join([]string{`&DeleteNICVirtualFunctionResponse{`,
+	s := strings.Join([]string{`&DeleteNICWithVFResponse{`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
 	return s
 }
-func (this *AddNICVirtualFunctionRequest) String() string {
+func (this *AddNICWithVFRequest) String() string {
 	if this == nil {
 		return "nil"
 	}
-	s := strings.Join([]string{`&AddNICVirtualFunctionRequest{`,
+	s := strings.Join([]string{`&AddNICWithVFRequest{`,
 		`NamespaceID:` + fmt.Sprintf("%v", this.NamespaceID) + `,`,
 		`ContainerID:` + fmt.Sprintf("%v", this.ContainerID) + `,`,
-		`DeviceID:` + fmt.Sprintf("%v", this.DeviceID) + `,`,
-		`Macaddress:` + fmt.Sprintf("%v", this.Macaddress) + `,`,
+		`NicID:` + fmt.Sprintf("%v", this.NicID) + `,`,
 		`Ipaddress:` + fmt.Sprintf("%v", this.Ipaddress) + `,`,
 		`IpaddressPrefixlength:` + fmt.Sprintf("%v", this.IpaddressPrefixlength) + `,`,
-		`Gateway:` + fmt.Sprintf("%v", this.Gateway) + `,`,
+		`DefaultGateway:` + fmt.Sprintf("%v", this.DefaultGateway) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
 	return s
 }
-func (this *AddNICVirtualFunctionResponse) String() string {
+func (this *AddNICWithVFResponse) String() string {
 	if this == nil {
 		return "nil"
 	}
-	s := strings.Join([]string{`&AddNICVirtualFunctionResponse{`,
+	s := strings.Join([]string{`&AddNICWithVFResponse{`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -4025,7 +4090,6 @@ func (this *AssignVFRequest) String() string {
 		`ContainerID:` + fmt.Sprintf("%v", this.ContainerID) + `,`,
 		`DeviceID:` + fmt.Sprintf("%v", this.DeviceID) + `,`,
 		`VirtualFunctionIndex:` + fmt.Sprintf("%v", this.VirtualFunctionIndex) + `,`,
-		`DeviceType:` + fmt.Sprintf("%v", this.DeviceType) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -4050,7 +4114,6 @@ func (this *RemoveVFRequest) String() string {
 		`ContainerID:` + fmt.Sprintf("%v", this.ContainerID) + `,`,
 		`DeviceID:` + fmt.Sprintf("%v", this.DeviceID) + `,`,
 		`VirtualFunctionIndex:` + fmt.Sprintf("%v", this.VirtualFunctionIndex) + `,`,
-		`DeviceType:` + fmt.Sprintf("%v", this.DeviceType) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -4145,7 +4208,7 @@ func (this *CreateNetworkRequest) String() string {
 		`Mode:` + fmt.Sprintf("%v", this.Mode) + `,`,
 		`SwitchName:` + fmt.Sprintf("%v", this.SwitchName) + `,`,
 		`IpamType:` + fmt.Sprintf("%v", this.IpamType) + `,`,
-		`SubnetIpadressPrefix:` + fmt.Sprintf("%v", this.SubnetIpadressPrefix) + `,`,
+		`SubnetIpaddressPrefix:` + fmt.Sprintf("%v", this.SubnetIpaddressPrefix) + `,`,
 		`DefaultGateway:` + fmt.Sprintf("%v", this.DefaultGateway) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
@@ -4187,6 +4250,19 @@ func (this *IovEndpointPolicySetting) String() string {
 	}, "")
 	return s
 }
+func (this *DnsSetting) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&DnsSetting{`,
+		`ServerIpAddrs:` + fmt.Sprintf("%v", this.ServerIpAddrs) + `,`,
+		`Domain:` + fmt.Sprintf("%v", this.Domain) + `,`,
+		`Search:` + fmt.Sprintf("%v", this.Search) + `,`,
+		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
+		`}`,
+	}, "")
+	return s
+}
 func (this *CreateEndpointRequest) String() string {
 	if this == nil {
 		return "nil"
@@ -4199,6 +4275,7 @@ func (this *CreateEndpointRequest) String() string {
 		`NetworkName:` + fmt.Sprintf("%v", this.NetworkName) + `,`,
 		`PortnamePolicySetting:` + strings.Replace(fmt.Sprintf("%v", this.PortnamePolicySetting), "PortNameEndpointPolicySetting", "PortNameEndpointPolicySetting", 1) + `,`,
 		`IovPolicySettings:` + strings.Replace(fmt.Sprintf("%v", this.IovPolicySettings), "IovEndpointPolicySetting", "IovEndpointPolicySetting", 1) + `,`,
+		`DnsSetting:` + strings.Replace(fmt.Sprintf("%v", this.DnsSetting), "DnsSetting", "DnsSetting", 1) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -4299,6 +4376,7 @@ func (this *GetEndpointResponse) String() string {
 		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
 		`Network:` + fmt.Sprintf("%v", this.Network) + `,`,
 		`Namespace:` + fmt.Sprintf("%v", this.Namespace) + `,`,
+		`DnsSetting:` + strings.Replace(fmt.Sprintf("%v", this.DnsSetting), "DnsSetting", "DnsSetting", 1) + `,`,
 		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
@@ -4377,7 +4455,7 @@ func valueToStringNetworkconfigproxy(v interface{}) string {
 	pv := reflect.Indirect(rv).Interface()
 	return fmt.Sprintf("*%v", pv)
 }
-func (m *DeleteNICVirtualFunctionRequest) Unmarshal(dAtA []byte) error {
+func (m *DeleteNICWithVFRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -4400,10 +4478,182 @@ func (m *DeleteNICVirtualFunctionRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: DeleteNICVirtualFunctionRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: DeleteNICWithVFRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: DeleteNICVirtualFunctionRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: DeleteNICWithVFRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ContainerID", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNetworkconfigproxy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ContainerID = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NicID", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNetworkconfigproxy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NicID = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipNetworkconfigproxy(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DeleteNICWithVFResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowNetworkconfigproxy
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DeleteNICWithVFResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DeleteNICWithVFResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipNetworkconfigproxy(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *AddNICWithVFRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowNetworkconfigproxy
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: AddNICWithVFRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: AddNICWithVFRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -4472,7 +4722,7 @@ func (m *DeleteNICVirtualFunctionRequest) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DeviceID", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field NicID", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -4500,245 +4750,9 @@ func (m *DeleteNICVirtualFunctionRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.DeviceID = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipNetworkconfigproxy(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthNetworkconfigproxy
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthNetworkconfigproxy
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *DeleteNICVirtualFunctionResponse) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowNetworkconfigproxy
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: DeleteNICVirtualFunctionResponse: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: DeleteNICVirtualFunctionResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		default:
-			iNdEx = preIndex
-			skippy, err := skipNetworkconfigproxy(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthNetworkconfigproxy
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthNetworkconfigproxy
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *AddNICVirtualFunctionRequest) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowNetworkconfigproxy
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: AddNICVirtualFunctionRequest: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: AddNICVirtualFunctionRequest: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NamespaceID", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowNetworkconfigproxy
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthNetworkconfigproxy
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthNetworkconfigproxy
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.NamespaceID = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ContainerID", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowNetworkconfigproxy
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthNetworkconfigproxy
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthNetworkconfigproxy
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.ContainerID = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DeviceID", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowNetworkconfigproxy
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthNetworkconfigproxy
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthNetworkconfigproxy
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.DeviceID = string(dAtA[iNdEx:postIndex])
+			m.NicID = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Macaddress", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowNetworkconfigproxy
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthNetworkconfigproxy
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthNetworkconfigproxy
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Macaddress = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 5:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Ipaddress", wireType)
 			}
@@ -4770,7 +4784,7 @@ func (m *AddNICVirtualFunctionRequest) Unmarshal(dAtA []byte) error {
 			}
 			m.Ipaddress = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 6:
+		case 5:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field IpaddressPrefixlength", wireType)
 			}
@@ -4789,9 +4803,9 @@ func (m *AddNICVirtualFunctionRequest) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 7:
+		case 6:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Gateway", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field DefaultGateway", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -4819,7 +4833,7 @@ func (m *AddNICVirtualFunctionRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Gateway = string(dAtA[iNdEx:postIndex])
+			m.DefaultGateway = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -4846,7 +4860,7 @@ func (m *AddNICVirtualFunctionRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *AddNICVirtualFunctionResponse) Unmarshal(dAtA []byte) error {
+func (m *AddNICWithVFResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -4869,10 +4883,10 @@ func (m *AddNICVirtualFunctionResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: AddNICVirtualFunctionResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: AddNICWithVFResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: AddNICVirtualFunctionResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: AddNICWithVFResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:
@@ -5008,25 +5022,6 @@ func (m *AssignVFRequest) Unmarshal(dAtA []byte) error {
 				b := dAtA[iNdEx]
 				iNdEx++
 				m.VirtualFunctionIndex |= uint32(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 4:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DeviceType", wireType)
-			}
-			m.DeviceType = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowNetworkconfigproxy
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.DeviceType |= AssignVFRequest_DeviceType(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -5250,25 +5245,6 @@ func (m *RemoveVFRequest) Unmarshal(dAtA []byte) error {
 				b := dAtA[iNdEx]
 				iNdEx++
 				m.VirtualFunctionIndex |= uint32(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 4:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DeviceType", wireType)
-			}
-			m.DeviceType = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowNetworkconfigproxy
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.DeviceType |= RemoveVFRequest_DeviceType(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -6133,7 +6109,7 @@ func (m *CreateNetworkRequest) Unmarshal(dAtA []byte) error {
 			}
 		case 5:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SubnetIpadressPrefix", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field SubnetIpaddressPrefix", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -6161,7 +6137,7 @@ func (m *CreateNetworkRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.SubnetIpadressPrefix = append(m.SubnetIpadressPrefix, string(dAtA[iNdEx:postIndex]))
+			m.SubnetIpaddressPrefix = append(m.SubnetIpaddressPrefix, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
 		case 6:
 			if wireType != 2 {
@@ -6503,6 +6479,156 @@ func (m *IovEndpointPolicySetting) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *DnsSetting) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowNetworkconfigproxy
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DnsSetting: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DnsSetting: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ServerIpAddrs", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNetworkconfigproxy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ServerIpAddrs = append(m.ServerIpAddrs, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Domain", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNetworkconfigproxy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Domain = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Search", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNetworkconfigproxy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Search = append(m.Search, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipNetworkconfigproxy(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *CreateEndpointRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -6761,6 +6887,42 @@ func (m *CreateEndpointRequest) Unmarshal(dAtA []byte) error {
 				m.IovPolicySettings = &IovEndpointPolicySetting{}
 			}
 			if err := m.IovPolicySettings.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 16:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DnsSetting", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNetworkconfigproxy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.DnsSetting == nil {
+				m.DnsSetting = &DnsSetting{}
+			}
+			if err := m.DnsSetting.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -7569,6 +7731,42 @@ func (m *GetEndpointResponse) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Namespace = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DnsSetting", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNetworkconfigproxy
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthNetworkconfigproxy
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.DnsSetting == nil {
+				m.DnsSetting = &DnsSetting{}
+			}
+			if err := m.DnsSetting.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

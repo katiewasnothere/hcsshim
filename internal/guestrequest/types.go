@@ -66,7 +66,7 @@ type LCOWNetworkAdapter struct {
 	DNSServerList   string `json:",omitempty"`
 	EnableLowMetric bool   `json:",omitempty"`
 	EncapOverhead   uint16 `json:",omitempty"`
-	IsVPCIDevice    bool   `json:",omitempty"`
+	IsVPCI          bool   `json:",omitempty"`
 }
 
 type LCOWContainerConstraints struct {

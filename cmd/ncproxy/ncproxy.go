@@ -46,7 +46,6 @@ func (s *grpcService) AssignVF(ctx context.Context, req *ncproxygrpc.AssignVFReq
 			ContainerID:          req.ContainerID,
 			DeviceID:             req.DeviceID,
 			VirtualFunctionIndex: req.VirtualFunctionIndex,
-			DeviceType:           computeagent.AssignVFInternalRequest_DeviceType(req.DeviceType),
 		}
 		resp, err := client.AssignVF(ctx, caReq)
 		if err != nil {
@@ -65,7 +64,6 @@ func (s *grpcService) RemoveVF(ctx context.Context, req *ncproxygrpc.RemoveVFReq
 	span.AddAttributes(
 		trace.StringAttribute("containerID", req.ContainerID))
 
-	// TODO katiewasnothere: should I check any other fields
 	if req.ContainerID == "" || req.DeviceID == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "received empty field in request: %+v", req)
 	}
@@ -75,7 +73,6 @@ func (s *grpcService) RemoveVF(ctx context.Context, req *ncproxygrpc.RemoveVFReq
 			ContainerID:          req.ContainerID,
 			DeviceID:             req.DeviceID,
 			VirtualFunctionIndex: req.VirtualFunctionIndex,
-			DeviceType:           computeagent.RemoveVFInternalRequest_DeviceType(req.DeviceType),
 		}
 		if _, err := client.RemoveVF(ctx, caReq); err != nil {
 			return nil, err
@@ -85,36 +82,35 @@ func (s *grpcService) RemoveVF(ctx context.Context, req *ncproxygrpc.RemoveVFReq
 	return nil, status.Errorf(codes.FailedPrecondition, "No shim registered for containerID `%s`", req.ContainerID)
 }
 
-func (s *grpcService) AddNICVirtualFunction(ctx context.Context, req *ncproxygrpc.AddNICVirtualFunctionRequest) (_ *ncproxygrpc.AddNICVirtualFunctionResponse, err error) {
-	ctx, span := trace.StartSpan(ctx, "AddNICVirtualFunction")
+func (s *grpcService) AddNICWithVF(ctx context.Context, req *ncproxygrpc.AddNICWithVFRequest) (_ *ncproxygrpc.AddNICWithVFResponse, err error) {
+	ctx, span := trace.StartSpan(ctx, "AddNICWithVF")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
 
 	span.AddAttributes(
 		trace.StringAttribute("containerID", req.ContainerID))
 
-	if req.ContainerID == "" || req.NamespaceID == "" || req.DeviceID == "" {
+	if req.ContainerID == "" || req.NamespaceID == "" || req.NicID == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "received empty field in request: %+v", req)
 	}
 	if client, ok := containerIDToShim[req.ContainerID]; ok {
-		caReq := &computeagent.AddNICVirtualFunctionInternalRequest{
+		caReq := &computeagent.AddNICWithVFInternalRequest{
 			NamespaceID:           req.NamespaceID,
 			ContainerID:           req.ContainerID,
-			DeviceID:              req.DeviceID,
-			Macaddress:            req.Macaddress,
+			NicID:                 req.NicID,
 			Ipaddress:             req.Ipaddress,
 			IpaddressPrefixlength: req.IpaddressPrefixlength,
-			Gateway:               req.Gateway,
+			DefaultGateway:        req.DefaultGateway,
 		}
-		if _, err := client.AddNICVirtualFunction(ctx, caReq); err != nil {
+		if _, err := client.AddNICWithVF(ctx, caReq); err != nil {
 			return nil, err
 		}
-		return &ncproxygrpc.AddNICVirtualFunctionResponse{}, nil
+		return &ncproxygrpc.AddNICWithVFResponse{}, nil
 	}
 	return nil, status.Errorf(codes.FailedPrecondition, "No shim registered for containerID `%s`", req.ContainerID)
 }
 
-func (s *grpcService) DeleteNICVirtualFunction(ctx context.Context, req *ncproxygrpc.DeleteNICVirtualFunctionRequest) (_ *ncproxygrpc.DeleteNICVirtualFunctionResponse, err error) {
+func (s *grpcService) DeleteNICWithVF(ctx context.Context, req *ncproxygrpc.DeleteNICWithVFRequest) (_ *ncproxygrpc.DeleteNICWithVFResponse, err error) {
 	ctx, span := trace.StartSpan(ctx, "DeleteNICVirtualFunction")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
@@ -122,20 +118,19 @@ func (s *grpcService) DeleteNICVirtualFunction(ctx context.Context, req *ncproxy
 	span.AddAttributes(
 		trace.StringAttribute("containerID", req.ContainerID))
 
-	if req.ContainerID == "" || req.NamespaceID == "" || req.DeviceID == "" {
+	if req.ContainerID == "" || req.NicID == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "received empty field in request: %+v", req)
 	}
 
 	if client, ok := containerIDToShim[req.ContainerID]; ok {
-		caReq := &computeagent.DeleteNICVirtualFunctionInternalRequest{
+		caReq := &computeagent.DeleteNICWithVFInternalRequest{
 			ContainerID: req.ContainerID,
-			NamespaceID: req.NamespaceID,
-			DeviceID:    req.DeviceID,
+			NicID:       req.NicID,
 		}
-		if _, err := client.DeleteNICVirtualFunction(ctx, caReq); err != nil {
+		if _, err := client.DeleteNICWithVF(ctx, caReq); err != nil {
 			return nil, err
 		}
-		return &ncproxygrpc.DeleteNICVirtualFunctionResponse{}, nil
+		return &ncproxygrpc.DeleteNICWithVFResponse{}, nil
 	}
 	return nil, status.Errorf(codes.FailedPrecondition, "No shim registered for containerID `%s`", req.ContainerID)
 }
@@ -326,8 +321,8 @@ func (s *grpcService) CreateNetwork(ctx context.Context, req *ncproxygrpc.Create
 		Settings: data,
 	}
 
-	subnets := make([]hcn.Subnet, len(req.SubnetIpadressPrefix))
-	for i, addrPrefix := range req.SubnetIpadressPrefix {
+	subnets := make([]hcn.Subnet, len(req.SubnetIpaddressPrefix))
+	for i, addrPrefix := range req.SubnetIpaddressPrefix {
 		subnet := hcn.Subnet{
 			IpAddressPrefix: addrPrefix,
 			Routes: []hcn.Route{
@@ -454,6 +449,14 @@ func (s *grpcService) CreateEndpoint(ctx context.Context, req *ncproxygrpc.Creat
 		},
 	}
 
+	if req.DnsSetting != nil {
+		endpoint.Dns = hcn.Dns{
+			ServerList: req.DnsSetting.ServerIpAddrs,
+			Domain:     req.DnsSetting.Domain,
+			Search:     req.DnsSetting.Search,
+		}
+	}
+
 	endpoint, err = endpoint.Create()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create HNS endpoint")
@@ -568,6 +571,11 @@ func (s *grpcService) GetEndpoint(ctx context.Context, req *ncproxygrpc.GetEndpo
 		Name:      ep.Name,
 		Network:   ep.HostComputeNetwork,
 		Namespace: ep.HostComputeNamespace,
+		DnsSetting: &ncproxygrpc.DnsSetting{
+			ServerIpAddrs: ep.Dns.ServerList,
+			Domain:        ep.Dns.Domain,
+			Search:        ep.Dns.Search,
+		},
 	}, nil
 }
 
@@ -588,6 +596,11 @@ func (s *grpcService) GetEndpoints(ctx context.Context, req *ncproxygrpc.GetEndp
 			Name:      endpoint.Name,
 			Network:   endpoint.HostComputeNetwork,
 			Namespace: endpoint.HostComputeNamespace,
+			DnsSetting: &ncproxygrpc.DnsSetting{
+				ServerIpAddrs: endpoint.Dns.ServerList,
+				Domain:        endpoint.Dns.Domain,
+				Search:        endpoint.Dns.Search,
+			},
 		}
 		endpoints[i] = resp
 	}
@@ -707,10 +720,9 @@ func (s *ttrpcService) ConfigureNetworking(ctx context.Context, req *ncproxyttrp
 		RequestType: nodenetsvc.RequestType(req.RequestType),
 	}
 
-	log.G(ctx).WithField("netsvcReq", netsvcReq).Info("ncproxy ConfigureContainerNetworking")
-	newctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
-	if _, err := nodeNetSvcClient.client.ConfigureNetworking(newctx, netsvcReq); err != nil {
+	if _, err := nodeNetSvcClient.client.ConfigureNetworking(ctx, netsvcReq); err != nil {
 		return nil, err
 	}
 	return &ncproxyttrpc.ConfigureNetworkingInternalResponse{}, nil

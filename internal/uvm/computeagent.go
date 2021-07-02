@@ -32,47 +32,45 @@ type computeAgent struct {
 
 var _ computeagent.ComputeAgentService = &computeAgent{}
 
-func (ca *computeAgent) AddNICVirtualFunction(ctx context.Context, req *computeagent.AddNICVirtualFunctionInternalRequest) (*computeagent.AddNICVirtualFunctionInternalResponse, error) {
+func (ca *computeAgent) AddNICWithVF(ctx context.Context, req *computeagent.AddNICWithVFInternalRequest) (*computeagent.AddNICWithVFInternalResponse, error) {
 	log.G(ctx).WithFields(logrus.Fields{
 		"req": req,
 	}).Info("AddNICVirtualFunction request")
-	if req.NamespaceID == "" || req.ContainerID == "" || req.DeviceID == "" {
+	if req.NamespaceID == "" || req.ContainerID == "" || req.NicID == "" {
 		return nil, status.Error(codes.InvalidArgument, "received empty field in request")
 	}
 
 	cfg := &guestrequest.LCOWNetworkAdapter{
 		NamespaceID:    req.NamespaceID,
-		ID:             req.DeviceID,
-		MacAddress:     req.Macaddress,
+		ID:             req.NicID,
 		IPAddress:      req.Ipaddress,
 		PrefixLength:   uint8(req.IpaddressPrefixlength),
-		GatewayAddress: req.Gateway,
-		IsVPCIDevice:   true,
+		GatewayAddress: req.DefaultGateway,
+		IsVPCI:         true,
 	}
-	if err := ca.uvm.AddVFNIC(ctx, req.DeviceID, cfg); err != nil {
+	if err := ca.uvm.AddNICWithVF(ctx, cfg); err != nil {
 		return nil, err
 	}
-	return &computeagent.AddNICVirtualFunctionInternalResponse{}, nil
+	return &computeagent.AddNICWithVFInternalResponse{}, nil
 }
 
-func (ca *computeAgent) DeleteNICVirtualFunction(ctx context.Context, req *computeagent.DeleteNICVirtualFunctionInternalRequest) (*computeagent.DeleteNICVirtualFunctionInternalResponse, error) {
+func (ca *computeAgent) DeleteNICWithVF(ctx context.Context, req *computeagent.DeleteNICWithVFInternalRequest) (*computeagent.DeleteNICWithVFInternalResponse, error) {
 	log.G(ctx).WithFields(logrus.Fields{
 		"req": req,
 	}).Info("DeleteNICVirtualFunction request")
-	if req.NamespaceID == "" || req.ContainerID == "" || req.DeviceID == "" {
+	if req.ContainerID == "" || req.NicID == "" {
 		return nil, status.Error(codes.InvalidArgument, "received empty field in request")
 	}
 
 	cfg := &guestrequest.LCOWNetworkAdapter{
-		NamespaceID:  req.NamespaceID,
-		ID:           req.DeviceID,
-		IsVPCIDevice: true,
+		ID:     req.NicID,
+		IsVPCI: true,
 	}
-	if err := ca.uvm.RemoveVFNIC(ctx, cfg); err != nil {
+	if err := ca.uvm.RemoveNICWithVF(ctx, cfg); err != nil {
 		return nil, err
 	}
 
-	return &computeagent.DeleteNICVirtualFunctionInternalResponse{}, nil
+	return &computeagent.DeleteNICWithVFInternalResponse{}, nil
 }
 
 func (ca *computeAgent) AssignVF(ctx context.Context, req *computeagent.AssignVFInternalRequest) (*computeagent.AssignVFInternalResponse, error) {
@@ -86,14 +84,10 @@ func (ca *computeAgent) AssignVF(ctx context.Context, req *computeagent.AssignVF
 		return nil, status.Error(codes.InvalidArgument, "received empty field in request")
 	}
 
-	// TODO katiewasnothere: add in module drivers!!!
-	//TODO katiewasnothere: handle windows too
 	dev, err := ca.uvm.AssignDevice(ctx, req.DeviceID, uint16(req.VirtualFunctionIndex))
 	if err != nil {
 		return nil, err
 	}
-	// get device ID
-	// TODO katiewasnothere: NEED TO GET DEVICE GUID BACK FROM ASSIGN DEVICE, is this right?
 	return &computeagent.AssignVFInternalResponse{ID: dev.VMBusGUID}, nil
 }
 

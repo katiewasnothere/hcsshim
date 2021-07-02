@@ -33,6 +33,8 @@ func FindDeviceBusLocationFromVMBusGUID(ctx context.Context, vmBusGUID string) (
 	return busFile, nil
 }
 
+// FindDeviceFullPath finds the full PCI device path in the form of
+// /sys/bus/vmbus/devices/<vmBusGUID>/pciXXXX:XX/XXXX:XX*
 func FindDeviceFullPath(ctx context.Context, vmBusGUID string) (string, error) {
 	pciDir, err := findVMBusPCIDir(ctx, vmBusGUID)
 	if err != nil {

@@ -160,9 +160,9 @@ func (n *namespace) AddAdapter(ctx context.Context, adp *prot.NetworkAdapterV2) 
 		}
 	}
 
-	resolveCtx, cancel := context.WithTimeout(ctx, time.Second*20)
+	resolveCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
-	ifname, err := networkInstanceIDToName(resolveCtx, adp.ID, adp.IsVPCIDevice)
+	ifname, err := networkInstanceIDToName(resolveCtx, adp.ID, adp.IsVPCI)
 	if err != nil {
 		return err
 	}

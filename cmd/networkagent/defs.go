@@ -17,7 +17,7 @@ type service struct {
 	containerToNetwork              map[string]string
 }
 
-type infinibandSettings struct {
+type nicWithVFSettings struct {
 	ID                   string `json:"id,omitempty"`
 	VirtualFunctionIndex uint32 `json:"virtual_function_index,omitempty"`
 }
@@ -28,8 +28,8 @@ type hnsSettings struct {
 }
 
 type networkingSettings struct {
-	InfinibandSettings *infinibandSettings `json:"infiniband_settings,omitempty"`
-	HNSSettings        *hnsSettings        `json:"hns_settings,omitempty"`
+	NICWithVFSettings *nicWithVFSettings `json:"nic_with_vf_settings,omitempty"`
+	HNSSettings       *hnsSettings       `json:"hns_settings,omitempty"`
 }
 
 type config struct {

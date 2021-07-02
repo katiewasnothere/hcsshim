@@ -10,62 +10,43 @@ service ComputeAgent{
     rpc DeleteNIC(DeleteNICInternalRequest) returns (DeleteNICInternalResponse) {}
     rpc AssignVF(AssignVFInternalRequest) returns (AssignVFInternalResponse) {}
     rpc RemoveVF(RemoveVFInternalRequest) returns (RemoveVFInternalResponse) {}
-    rpc AddNICVirtualFunction(AddNICVirtualFunctionInternalRequest) returns (AddNICVirtualFunctionInternalResponse) {}
-    rpc DeleteNICVirtualFunction(DeleteNICVirtualFunctionInternalRequest) returns (DeleteNICVirtualFunctionInternalResponse) {}
+    rpc AddNICWithVF(AddNICWithVFInternalRequest) returns (AddNICWithVFInternalResponse) {}
+    rpc DeleteNICWithVF(DeleteNICWithVFInternalRequest) returns (DeleteNICWithVFInternalResponse) {}
 }
 
-message DeleteNICVirtualFunctionInternalRequest {
-    // TODO katiewasnothere: this should make call to configure interface
-    // DO we even need this or care about them being separate?
-    string namespace_id = 1;
-    string container_id = 2;
-    string device_id = 3;
-}
-
-message DeleteNICVirtualFunctionInternalResponse {}
-
-message AddNICVirtualFunctionInternalRequest {
-    // TODO katiewasnothere: this should make call to configure interface
-    // DO we even need this or care about them being separate?
-    string namespace_id = 1;
-    string container_id = 2;
-    string device_id = 3;
-    string macaddress = 4;
-    string ipaddress = 5;
-    uint32 ipaddress_prefixlength = 6;
-    string gateway = 7;
-}
-
-message AddNICVirtualFunctionInternalResponse {}
-
-message RemoveVFInternalRequest {
-    // TODO katiewasnothere: don't know what fields we need
+message DeleteNICWithVFInternalRequest   {
     string container_id = 1;
-    string device_id = 2;
-    uint32 virtual_function_index = 3;
-    enum DeviceType 
-    {
-        Infiniband = 0;
-    }
-    DeviceType device_type = 4;
+    string nic_id = 2;
 }
+message DeleteNICWithVFInternalResponse {}
 
-message RemoveVFInternalResponse {} 
+message AddNICWithVFInternalRequest   {
+    string namespace_id = 1;
+    string container_id = 2;
+    string nic_id = 3;
+    string ipaddress = 4;
+    uint32 ipaddress_prefixlength = 5;
+    string default_gateway   = 6;
+}
+message AddNICWithVFInternalResponse {}
 
 message AssignVFInternalRequest {
     string container_id = 1;
     string device_id = 2;
     uint32 virtual_function_index = 3;
-    enum DeviceType 
-    {
-        Infiniband = 0;
-    }
-    DeviceType device_type = 4;
 }
 
 message AssignVFInternalResponse {
     string id = 1;
 }
+
+message RemoveVFInternalRequest {
+    string container_id = 1;
+    string device_id = 2;
+    uint32 virtual_function_index = 3;
+}
+
+message RemoveVFInternalResponse {}
 
 message AddNICInternalRequest {
     string container_id = 1;

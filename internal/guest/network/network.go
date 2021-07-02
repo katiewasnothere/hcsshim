@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -107,7 +106,7 @@ func MergeValues(first, second []string) []string {
 // Windows host) to its corresponding interface name (e.g. "eth0").
 //
 // Will retry the operation until `ctx` is exceeded or canceled.
-func InstanceIDToName(ctx context.Context, id string, isVPCIDevice bool) (_ string, err error) {
+func InstanceIDToName(ctx context.Context, id string, isVPCI bool) (_ string, err error) {
 	ctx, span := trace.StartSpan(ctx, "network::InstanceIDToName")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
@@ -116,44 +115,17 @@ func InstanceIDToName(ctx context.Context, id string, isVPCIDevice bool) (_ stri
 	span.AddAttributes(trace.StringAttribute("adapterInstanceID", vmbusID))
 
 	netDevicePath := ""
-
-	if isVPCIDevice {
-		log.G(ctx).WithField("vmbusguid", vmbusID).Info("vmbus guid to search for")
-		// the device was added to the guest with a call to assign a vpci device through hcs
-		// so we additionally need to know the pci subpath under the vmbus path
+	if isVPCI {
 		pciDevicePath, err := pci.FindDeviceFullPath(ctx, vmbusID)
 		if err != nil {
 			return "", err
 		}
-		// wait for "net"
-
-		netDevicePath, err = storage.WaitForFileMatchingPattern(ctx, pciDevicePath)
-		if err != nil {
-			return "", err
-		}
-
-		cmd := exec.Command("lsmod")
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return "", err
-		}
-		log.G(ctx).WithField("output", string(out)).Info("lsmod output")
-
 		pciNetDirPattern := filepath.Join(pciDevicePath, "net")
 		netDevicePath, err = storage.WaitForFileMatchingPattern(ctx, pciNetDirPattern)
-		if err != nil {
-			return "", err
-		}
-
-		log.G(ctx).WithField("id", netDevicePath).Info("found pci device ID")
 	} else {
-
-		vmBusSubPath := filepath.Join(vmbusID, "net")
-		//TODO katiewasnothere: should we handle error here
-		netDevicePath, err = vmbus.WaitForDevicePath(ctx, vmBusSubPath)
+		vmBusNetSubPath := filepath.Join(vmbusID, "net")
+		netDevicePath, err = vmbus.WaitForDevicePath(ctx, vmBusNetSubPath)
 	}
-
-	log.G(ctx).WithField("devicePath", netDevicePath).Info("device path to search for")
 
 	var deviceDirs []os.FileInfo
 	for {
@@ -168,7 +140,7 @@ func InstanceIDToName(ctx context.Context, id string, isVPCIDevice bool) (_ stri
 					continue
 				}
 			} else {
-				return "", errors.Wrapf(err, "failed to read vmbus network device from /sys filesystem for adapter %s", id)
+				return "", errors.Wrapf(err, "failed to read vmbus network device from /sys filesystem for adapter %s", vmbusID)
 			}
 		}
 		break
@@ -177,7 +149,7 @@ func InstanceIDToName(ctx context.Context, id string, isVPCIDevice bool) (_ stri
 		return "", errors.Errorf("no interface name found for adapter %s", vmbusID)
 	}
 	if len(deviceDirs) > 1 {
-		return "", errors.Errorf("multiple interface names found for adapter %s", id)
+		return "", errors.Errorf("multiple interface names found for adapter %s", vmbusID)
 	}
 	ifname := deviceDirs[0].Name()
 	log.G(ctx).WithField("ifname", ifname).Debug("resolved ifname")
