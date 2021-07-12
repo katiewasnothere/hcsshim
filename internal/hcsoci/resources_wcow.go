@@ -102,6 +102,14 @@ func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, r
 		coi.Spec.Windows.Devices = windowsDevices
 	}
 
+	if coi.HostingSystem != nil {
+		driverClosers, err := installPodDrivers(ctx, coi.HostingSystem, coi.Spec.Annotations)
+		if err != nil {
+			return err
+		}
+		r.Add(driverClosers...)
+	}
+
 	return nil
 }
 
