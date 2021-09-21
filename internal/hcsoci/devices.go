@@ -153,3 +153,30 @@ func getDeviceInfoFromPath(rawDevicePath string) (string, uint16) {
 	// otherwise, just use default index and full device ID given
 	return rawDevicePath, 0
 }
+
+func installPodDrivers(ctx context.Context, vm *uvm.UtilityVM, annotations map[string]string) (closers []resources.ResourceCloser, err error) {
+	defer func() {
+		if err != nil {
+			// best effort clean up allocated resources on failure
+			for _, r := range closers {
+				if releaseErr := r.Release(ctx); releaseErr != nil {
+					log.G(ctx).WithError(releaseErr).Error("failed to release container resource")
+				}
+			}
+		}
+	}()
+
+	// get the spec specified kernel drivers and install them on the UVM
+	drivers, err := getAssignedDeviceKernelDrivers(annotations)
+	if err != nil {
+		return closers, err
+	}
+	for _, d := range drivers {
+		driverCloser, err := devices.InstallKernelDriver(ctx, vm, d)
+		if err != nil {
+			return closers, err
+		}
+		closers = append(closers, driverCloser)
+	}
+	return closers, err
+}

@@ -14,7 +14,6 @@ import (
 
 	"github.com/Microsoft/hcsshim/internal/cmd"
 	"github.com/Microsoft/hcsshim/internal/credentials"
-	"github.com/Microsoft/hcsshim/internal/devices"
 	"github.com/Microsoft/hcsshim/internal/layers"
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/resources"
@@ -98,28 +97,22 @@ func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, r
 		}
 	}
 
-	if coi.HostingSystem != nil && coi.hasWindowsAssignedDevices() {
-		windowsDevices, closers, err := handleAssignedDevicesWindows(ctx, coi.HostingSystem, coi.Spec.Annotations, coi.Spec.Windows.Devices)
-		if err != nil {
-			return err
-		}
-		r.Add(closers...)
-		coi.Spec.Windows.Devices = windowsDevices
-	}
-
 	if coi.HostingSystem != nil {
-		// get the spec specified kernel drivers and install them on the UVM
-		drivers, err := getSpecKernelDrivers(coi.Spec.Annotations)
-		if err != nil {
-			return err
-		}
-		for _, d := range drivers {
-			driverCloser, err := devices.InstallWindowsDriver(ctx, coi.HostingSystem, d)
+		if coi.hasWindowsAssignedDevices() {
+			windowsDevices, closers, err := handleAssignedDevicesWindows(ctx, coi.HostingSystem, coi.Spec.Annotations, coi.Spec.Windows.Devices)
 			if err != nil {
 				return err
 			}
-			r.Add(driverCloser)
+			r.Add(closers...)
+			coi.Spec.Windows.Devices = windowsDevices
 		}
+		// TODO katiewasnothere: instead of having to reinstall drivers, make code that
+		// checks the config flags of the devices to verify they're ready
+		driverClosers, err := installPodDrivers(ctx, coi.HostingSystem, coi.Spec.Annotations)
+		if err != nil {
+			return err
+		}
+		r.Add(driverClosers...)
 	}
 
 	return nil

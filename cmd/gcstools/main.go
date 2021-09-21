@@ -7,7 +7,8 @@ import (
 )
 
 var commands = map[string]func(){
-	"generichook": genericHookMain,
+	"generichook":     genericHookMain,
+	"install-drivers": installDriversMain,
 }
 
 func main() {
