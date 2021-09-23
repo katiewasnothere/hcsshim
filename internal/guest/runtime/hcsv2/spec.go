@@ -253,3 +253,19 @@ func applyAnnotationsToSpec(ctx context.Context, spec *oci.Spec) error {
 
 	return nil
 }
+
+// Helper function to create an oci prestart hook to run ldconfig
+func addLDConfigHook(ctx context.Context, spec *oci.Spec, args, env []string) error {
+	if spec.Hooks == nil {
+		spec.Hooks = &oci.Hooks{}
+	}
+
+	ldConfigHook := oci.Hook{
+		Path: "/sbin/ldconfig",
+		Args: args,
+		Env:  env,
+	}
+
+	spec.Hooks.Prestart = append(spec.Hooks.Prestart, ldConfigHook)
+	return nil
+}

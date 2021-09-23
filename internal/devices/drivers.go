@@ -70,8 +70,6 @@ func InstallKernelDriver(ctx context.Context, vm *uvm.UtilityVM, driver string) 
 		}
 		return closer, execPnPInstallDriver(ctx, vm, uvmPath)
 	}
-	// TODO katiewasnothere: we should make this read-only but then we can't run depmod
-	// TODO katiewasnothere: need to mount to another location still because on the UVM it's readonly
 	uvmPathForShare := fmt.Sprintf(uvm.LCOWGlobalMountPrefix, vm.UVMMountCounter())
 	scsiCloser, err := vm.AddSCSI(ctx, driver, uvmPathForShare, true, false, []string{}, uvm.VMAccessTypeIndividual)
 	if err != nil {

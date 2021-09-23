@@ -106,8 +106,8 @@ func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, r
 			r.Add(closers...)
 			coi.Spec.Windows.Devices = windowsDevices
 		}
-		// TODO katiewasnothere: instead of having to reinstall drivers, make code that
-		// checks the config flags of the devices to verify they're ready
+		// attempt to reinstall drivers to make sure that the devices are ready when we proceed
+		// TODO katiewasnothere: we should find a way to avoid reinstalling drivers
 		driverClosers, err := installPodDrivers(ctx, coi.HostingSystem, coi.Spec.Annotations)
 		if err != nil {
 			return err

@@ -88,10 +88,10 @@ func execModprobeInstallDriver(ctx context.Context, vm *uvm.UtilityVM, driverDir
 		Stderr: p,
 	}
 
-	_, err = cmd.ExecInUvm(ctx, vm, req)
-	/*if err != nil && err != noExecOutputErr {
+	exitCode, err := cmd.ExecInUvm(ctx, vm, req)
+	if err != nil && err != noExecOutputErr {
 		return errors.Wrapf(err, "failed to install driver %s in uvm with exit code %d", driverDir, exitCode)
-	}*/
+	}
 
 	// wait to finish parsing stdout results
 	select {

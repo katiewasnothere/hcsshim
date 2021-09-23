@@ -1,8 +1,9 @@
+// +build linux
+
 package main
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"io/fs"
 	"os"
@@ -11,11 +12,16 @@ import (
 	"strings"
 
 	"github.com/Microsoft/hcsshim/internal/guest/storage/overlay"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
-const lcowGlobalDriversPrefix = "/run/drivers/%s"
+const (
+	lcowGlobalDriversPrefix = "/run/drivers/%s"
+
+	moduleExtension = ".ko"
+)
 
 func install(ctx context.Context) error {
 	args := []string(os.Args[1:])
@@ -27,19 +33,19 @@ func install(ctx context.Context) error {
 	for _, driver := range args {
 		modules := []string{}
 
-		b := make([]byte, 16)
-		_, err := rand.Read(b)
+		driverGUID, err := uuid.NewRandom()
 		if err != nil {
 			return err
 		}
-		driverGUID := fmt.Sprintf("%x-%x-%x-%x-%x",
-			b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 
-		runDriverPath := fmt.Sprintf(lcowGlobalDriversPrefix, driverGUID)
+		// create an overlay mount from the driver's UVM path so we can write to the
+		// mount path in the UVM despite having mounted in the driver originally as
+		// readonly
+		runDriverPath := fmt.Sprintf(lcowGlobalDriversPrefix, driverGUID.String())
 		upperPath := filepath.Join(runDriverPath, "upper")
 		workPath := filepath.Join(runDriverPath, "work")
 		rootPath := filepath.Join(runDriverPath, "content")
-		if err := overlay.MountOverlay(ctx, []string{driver}, upperPath, workPath, rootPath, false); err != nil {
+		if err := overlay.Mount(ctx, []string{driver}, upperPath, workPath, rootPath, false); err != nil {
 			return err
 		}
 
@@ -48,8 +54,8 @@ func install(ctx context.Context) error {
 			if err != nil {
 				return errors.Wrap(err, "failed to read directory while walking dir")
 			}
-			if !d.IsDir() && filepath.Ext(d.Name()) == ".ko" {
-				moduleName := strings.TrimSuffix(d.Name(), ".ko")
+			if !d.IsDir() && filepath.Ext(d.Name()) == moduleExtension {
+				moduleName := strings.TrimSuffix(d.Name(), moduleExtension)
 				modules = append(modules, moduleName)
 				fmt.Fprintln(os.Stderr, moduleName)
 			}
@@ -75,8 +81,6 @@ func install(ctx context.Context) error {
 
 		out, err = cmd.CombinedOutput()
 		if err != nil {
-			logrus.Errorf("error in install drivers: %s", err)
-			fmt.Fprintln(os.Stderr, err)
 			return errors.Wrapf(err, "failed to run cmd with message: %s", out)
 		}
 	}
@@ -86,13 +90,6 @@ func install(ctx context.Context) error {
 
 func installDriversMain() {
 	ctx := context.Background()
-	logFileHandle, err := os.OpenFile("/tmp/installdebug.txt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0700)
-	if err != nil {
-		logrus.Errorf("error in install drivers: %s", err)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	logrus.SetOutput(logFileHandle)
 	if err := install(ctx); err != nil {
 		logrus.Errorf("error in install drivers: %s", err)
 		fmt.Fprintln(os.Stderr, err)
