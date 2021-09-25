@@ -9,6 +9,7 @@ import (
 	"github.com/Microsoft/go-winio"
 	"github.com/Microsoft/hcsshim/cmd/ncproxy/ncproxygrpc"
 	"github.com/Microsoft/hcsshim/internal/log"
+	"github.com/Microsoft/hcsshim/internal/ncproxystore"
 	"github.com/Microsoft/hcsshim/internal/ncproxyttrpc"
 	"github.com/Microsoft/hcsshim/pkg/octtrpc"
 	"github.com/containerd/ttrpc"
@@ -26,7 +27,7 @@ type server struct {
 
 	// store shared data on server for cleaning up later
 	// database for containerID to compute agent address
-	agentStore *computeAgentStore
+	agentStore *ncproxystore.ComputeAgentStore
 	// cache of container IDs to compute agent clients
 	cache *computeAgentCache
 }
@@ -36,7 +37,7 @@ func newServer(ctx context.Context, conf *config, dbPath string) (*server, error
 	if err != nil {
 		return nil, err
 	}
-	agentStore := newComputeAgentStore(db)
+	agentStore := ncproxystore.NewComputeAgentStore(db)
 	agentCache := newComputeAgentCache()
 	reconnectComputeAgents(ctx, agentStore, agentCache)
 
@@ -146,9 +147,9 @@ func (s *server) serve(ctx context.Context, ttrpcListener net.Listener, grpcList
 // but allow the service start to proceed. We chose this approach vs just failing service
 // start to avoid blocking service for all containers that had successful reconnection and to
 // avoid blocking the creation of new containers until retry or mitigation.
-func reconnectComputeAgents(ctx context.Context, agentStore *computeAgentStore, agentCache *computeAgentCache) {
-	computeAgentMap, err := agentStore.getComputeAgents(ctx)
-	if err != nil && errors.Is(err, errBucketNotFound) {
+func reconnectComputeAgents(ctx context.Context, agentStore *ncproxystore.ComputeAgentStore, agentCache *computeAgentCache) {
+	computeAgentMap, err := agentStore.GetComputeAgents(ctx)
+	if err != nil && errors.Is(err, ncproxystore.ErrBucketNotFound) {
 		// no entries in the database yet, return early
 		log.G(ctx).WithError(err).Debug("no entries in database")
 		return
@@ -165,7 +166,7 @@ func reconnectComputeAgents(ctx context.Context, agentStore *computeAgentStore, 
 			if err != nil {
 				// can't connect to compute agent, remove entry in database
 				log.G(ctx).WithField("agentAddress", agentAddress).WithError(err).Error("failed to create new compute agent client")
-				dErr := agentStore.deleteComputeAgent(ctx, containerID)
+				dErr := agentStore.DeleteComputeAgent(ctx, containerID)
 				if dErr != nil {
 					log.G(ctx).WithField("key", containerID).WithError(dErr).Warn("failed to delete key from compute agent store")
 				}

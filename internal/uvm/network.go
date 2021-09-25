@@ -676,3 +676,64 @@ func (uvm *UtilityVM) UpdateNIC(ctx context.Context, id string, settings *hcssch
 	}
 	return uvm.modify(ctx, req)
 }
+
+// AddPCIAssignedNIC makes a request to setup a network adapter's interface inside
+// the lcow guest for a device that was assigned using VPCI
+func (uvm *UtilityVM) AddPCIAssignedNIC(ctx context.Context, cfg *guestrequest.LCOWNetworkAdapter) error {
+	if !uvm.isNetworkNamespaceSupported() {
+		return fmt.Errorf("guest does not support network namespaces and cannot add VF NIC %+v", cfg)
+	}
+	request := hcsschema.ModifySettingRequest{}
+	request.GuestRequest = guestrequest.GuestRequest{
+		ResourceType: guestrequest.ResourceTypeNetwork,
+		RequestType:  requesttype.Add,
+		Settings:     cfg,
+	}
+
+	return uvm.modify(ctx, &request)
+}
+
+// RemovePCIAssignedNIC makes a request to remove a network interface inside the
+// lcow guest for a device assigned using VPCI
+func (uvm *UtilityVM) RemovePCIAssignedNIC(ctx context.Context, cfg *guestrequest.LCOWNetworkAdapter) error {
+	if !uvm.isNetworkNamespaceSupported() {
+		return fmt.Errorf("guest does not support network namespaces and cannot remove VF NIC %+v", cfg)
+	}
+	request := hcsschema.ModifySettingRequest{}
+	request.GuestRequest = guestrequest.GuestRequest{
+		ResourceType: guestrequest.ResourceTypeNetwork,
+		RequestType:  requesttype.Remove,
+		Settings:     cfg,
+	}
+
+	return uvm.modify(ctx, &request)
+}
+
+// TODO katiewasnothere: make this better
+func (uvm *UtilityVM) AddGuestLCOWNetworkAdapter(ctx context.Context, cfg *guestrequest.LCOWNetworkAdapter) error {
+	if !uvm.isNetworkNamespaceSupported() {
+		return fmt.Errorf("guest does not support network namespaces and cannot add adapter %+v", cfg)
+	}
+	request := hcsschema.ModifySettingRequest{}
+	request.GuestRequest = guestrequest.GuestRequest{
+		ResourceType: guestrequest.ResourceTypeNetwork,
+		RequestType:  requesttype.Add,
+		Settings:     cfg,
+	}
+
+	return uvm.modify(ctx, &request)
+}
+
+func (uvm *UtilityVM) RemoveGuestLCOWNetworkAdapter(ctx context.Context, cfg *guestrequest.LCOWNetworkAdapter) error {
+	if !uvm.isNetworkNamespaceSupported() {
+		return fmt.Errorf("guest does not support network namespaces and cannot remove adapter %+v", cfg)
+	}
+	request := hcsschema.ModifySettingRequest{}
+	request.GuestRequest = guestrequest.GuestRequest{
+		ResourceType: guestrequest.ResourceTypeNetwork,
+		RequestType:  requesttype.Remove,
+		Settings:     cfg,
+	}
+
+	return uvm.modify(ctx, &request)
+}

@@ -5,11 +5,14 @@ import (
 	"testing"
 
 	"github.com/Microsoft/hcsshim/internal/computeagent"
+	"github.com/Microsoft/hcsshim/internal/guestrequest"
 	hcsschema "github.com/Microsoft/hcsshim/internal/hcs/schema2"
 	"github.com/Microsoft/hcsshim/internal/hns"
 )
 
 type testUtilityVM struct{}
+
+var _ agentComputeSystem = &testUtilityVM{}
 
 func (t *testUtilityVM) AddEndpointToNSWithID(ctx context.Context, nsID, nicID string, endpoint *hns.HNSEndpoint) error {
 	return nil
@@ -20,6 +23,22 @@ func (t *testUtilityVM) RemoveEndpointFromNS(ctx context.Context, id string, end
 }
 
 func (t *testUtilityVM) UpdateNIC(ctx context.Context, id string, settings *hcsschema.NetworkAdapter) error {
+	return nil
+}
+
+func (t *testUtilityVM) AssignDevice(ctx context.Context, deviceID string, index uint16) (*VPCIDevice, error) {
+	return &VPCIDevice{}, nil
+}
+
+func (t *testUtilityVM) RemoveDevice(ctx context.Context, deviceID string, index uint16) error {
+	return nil
+}
+
+func (t *testUtilityVM) AddGuestLCOWNetworkAdapter(ctx context.Context, cfg *guestrequest.LCOWNetworkAdapter) error {
+	return nil
+}
+
+func (t *testUtilityVM) RemoveGuestLCOWNetworkAdapter(ctx context.Context, cfg *guestrequest.LCOWNetworkAdapter) error {
 	return nil
 }
 
@@ -70,7 +89,6 @@ func TestAddNIC(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(_ *testing.T) {
-
 			req := &computeagent.AddNICInternalRequest{
 				NicID:        test.nicID,
 				EndpointName: test.endpointName,
@@ -223,6 +241,94 @@ func TestDeleteNIC(t *testing.T) {
 			}
 			if !test.errorExpected && err != nil {
 				t.Fatalf("expected DeleteNIC to return no error, instead got %v", err)
+			}
+		})
+	}
+}
+
+func TestAssignPCI(t *testing.T) {
+	ctx := context.Background()
+
+	agent := &computeAgent{
+		uvm: &testUtilityVM{},
+	}
+
+	testDeviceID := "test-device-ID"
+
+	type config struct {
+		name          string
+		deviceID      string
+		errorExpected bool
+	}
+	tests := []config{
+		{
+			name:          "AssignPCI returns no error",
+			deviceID:      testDeviceID,
+			errorExpected: false,
+		},
+		{
+			name:          "AssignPCI returns error with blank device ID",
+			deviceID:      "",
+			errorExpected: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(_ *testing.T) {
+			req := &computeagent.AssignPCIInternalRequest{
+				ContainerID: t.Name() + "-container-id",
+				DeviceID:    test.deviceID,
+			}
+
+			_, err := agent.AssignPCI(ctx, req)
+			if test.errorExpected && err == nil {
+				t.Fatalf("expected AssignPCI to return an error")
+			}
+			if !test.errorExpected && err != nil {
+				t.Fatalf("expected AssignPCI to return no error, instead got %v", err)
+			}
+		})
+	}
+}
+
+func TestRemovePCI(t *testing.T) {
+	ctx := context.Background()
+
+	agent := &computeAgent{
+		uvm: &testUtilityVM{},
+	}
+
+	testDeviceID := "test-device-ID"
+
+	type config struct {
+		name          string
+		deviceID      string
+		errorExpected bool
+	}
+	tests := []config{
+		{
+			name:          "RemovePCI returns no error",
+			deviceID:      testDeviceID,
+			errorExpected: false,
+		},
+		{
+			name:          "RemovePCI returns error with blank device ID",
+			deviceID:      "",
+			errorExpected: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(_ *testing.T) {
+			req := &computeagent.RemovePCIInternalRequest{
+				ContainerID: t.Name() + "-container-id",
+				DeviceID:    test.deviceID,
+			}
+
+			_, err := agent.RemovePCI(ctx, req)
+			if test.errorExpected && err == nil {
+				t.Fatalf("expected RemovePCI to return an error")
+			}
+			if !test.errorExpected && err != nil {
+				t.Fatalf("expected RemovePCI to return no error, instead got %v", err)
 			}
 		})
 	}

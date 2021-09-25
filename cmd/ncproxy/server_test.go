@@ -16,13 +16,18 @@ import (
 	"github.com/Microsoft/hcsshim/cmd/ncproxy/nodenetsvc"
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/Microsoft/hcsshim/internal/computeagent"
+	"github.com/Microsoft/hcsshim/internal/ncproxystore"
 	"github.com/Microsoft/hcsshim/internal/ncproxyttrpc"
+	"github.com/Microsoft/hcsshim/internal/networking"
 	"github.com/Microsoft/hcsshim/osversion"
 	"github.com/containerd/ttrpc"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 )
+
+// TODO katiewasnothere: Finish the rest of the tests for custom
+// also figure out how to combine hcn and custom into one test function
 
 func exists(target string, list []string) bool {
 	for _, v := range list {
@@ -43,10 +48,25 @@ func networkExists(targetName string, networks []*ncproxygrpc.GetNetworkResponse
 }
 
 func endpointExists(targetName string, endpoints []*ncproxygrpc.GetEndpointResponse) bool {
-	for _, ep := range endpoints {
-		if ep.Name == targetName {
-			return true
+	for _, resp := range endpoints {
+		ep := resp.Endpoint
+		switch endpt := ep.(type) {
+		case *ncproxygrpc.GetEndpointResponse_HcnEndpoint:
+			if endpt.HcnEndpoint == nil || endpt.HcnEndpoint.Settings == nil {
+				continue
+			}
+			if endpt.HcnEndpoint.Settings.Name == targetName {
+				return true
+			}
+		case *ncproxygrpc.GetEndpointResponse_NcproxyEndpoint:
+			if endpt.NcproxyEndpoint == nil || endpt.NcproxyEndpoint.Settings == nil {
+				continue
+			}
+			if endpt.NcproxyEndpoint.Settings.Name == targetName {
+				return true
+			}
 		}
+
 	}
 	return false
 }
@@ -96,18 +116,37 @@ func createTestNATNetwork(name string) (*hcn.HostComputeNetwork, error) {
 	return network.Create()
 }
 
-func TestAddNIC(t *testing.T) {
+func TestAddNIC_HCN(t *testing.T) {
 	ctx := context.Background()
-
-	// setup test ncproxy grpc service
-	agentCache := newComputeAgentCache()
-	gService := newGRPCService(agentCache)
 
 	var (
 		containerID      = t.Name() + "-containerID"
 		testNICID        = t.Name() + "-nicID"
 		testEndpointName = t.Name() + "-endpoint"
 	)
+
+	// setup test ncproxy grpc service
+	agentCache := newComputeAgentCache()
+	gService := newGRPCService(agentCache)
+
+	// test network
+	network, err := createTestNATNetwork(t.Name() + "network")
+	if err != nil {
+		t.Fatalf("failed to create test network with %v", err)
+	}
+	defer func() {
+		_ = network.Delete()
+	}()
+
+	endpoint, err := createTestEndpoint(testEndpointName, network.Id)
+	if err != nil {
+		t.Fatalf("failed to create test endpoint with %v", err)
+	}
+	// defer cleanup in case of error. ignore error from the delete call here
+	// since we may have already successfully deleted the endpoint.
+	defer func() {
+		_ = endpoint.Delete()
+	}()
 
 	// create mocked compute agent service
 	computeAgentCtrl := gomock.NewController(t)
@@ -163,7 +202,6 @@ func TestAddNIC(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(_ *testing.T) {
-
 			req := &ncproxygrpc.AddNICRequest{
 				ContainerID:  test.containerID,
 				NicID:        test.nicID,
@@ -181,18 +219,127 @@ func TestAddNIC(t *testing.T) {
 	}
 }
 
-func TestDeleteNIC(t *testing.T) {
+func TestAddNIC_Custom(t *testing.T) {
 	ctx := context.Background()
-
-	// setup test ncproxy grpc service
-	agentCache := newComputeAgentCache()
-	gService := newGRPCService(agentCache)
 
 	var (
 		containerID      = t.Name() + "-containerID"
 		testNICID        = t.Name() + "-nicID"
 		testEndpointName = t.Name() + "-endpoint"
 	)
+
+	// setup test ncproxy grpc service
+	agentCache := newComputeAgentCache()
+	gService := newGRPCService(agentCache)
+
+	// create mocked compute agent service
+	computeAgentCtrl := gomock.NewController(t)
+	defer computeAgentCtrl.Finish()
+	mockedService := ncproxyMock.NewMockComputeAgentService(computeAgentCtrl)
+	mockedAgentClient := &computeAgentClient{nil, mockedService}
+
+	// put mocked compute agent in agent cache for test
+	if err := agentCache.put(containerID, mockedAgentClient); err != nil {
+		t.Fatal(err)
+	}
+
+	// setup expected mocked calls
+	mockedService.EXPECT().AddNIC(gomock.Any(), gomock.Any()).Return(&computeagent.AddNICInternalResponse{}, nil).AnyTimes()
+
+	// add entry to cache of custom endpoints
+	endpoint := &networking.NCProxyEndpoint{
+		EndpointName: testEndpointName,
+	}
+	gService.ccn.endpoints.put(testEndpointName, endpoint)
+
+	type config struct {
+		name          string
+		containerID   string
+		nicID         string
+		endpointName  string
+		errorExpected bool
+	}
+	tests := []config{
+		{
+			name:          "AddNIC returns no error",
+			containerID:   containerID,
+			nicID:         testNICID,
+			endpointName:  testEndpointName,
+			errorExpected: false,
+		},
+		{
+			name:          "AddNIC returns error with blank container ID",
+			containerID:   "",
+			nicID:         testNICID,
+			endpointName:  testEndpointName,
+			errorExpected: true,
+		},
+		{
+			name:          "AddNIC returns error with blank nic ID",
+			containerID:   containerID,
+			nicID:         "",
+			endpointName:  testEndpointName,
+			errorExpected: true,
+		},
+		{
+			name:          "AddNIC returns error with blank endpoint name",
+			containerID:   containerID,
+			nicID:         testNICID,
+			endpointName:  "",
+			errorExpected: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(_ *testing.T) {
+			req := &ncproxygrpc.AddNICRequest{
+				ContainerID:  test.containerID,
+				NicID:        test.nicID,
+				EndpointName: test.endpointName,
+			}
+
+			_, err := gService.AddNIC(ctx, req)
+			if test.errorExpected && err == nil {
+				t.Fatalf("expected AddNIC to return an error")
+			}
+			if !test.errorExpected && err != nil {
+				t.Fatalf("expected AddNIC to return no error, instead got %v", err)
+			}
+		})
+	}
+}
+
+func TestDeleteNIC_HCN(t *testing.T) {
+	ctx := context.Background()
+
+	var (
+		containerID      = t.Name() + "-containerID"
+		testNICID        = t.Name() + "-nicID"
+		testEndpointName = t.Name() + "-endpoint"
+	)
+
+	// setup test ncproxy grpc service
+	agentCache := newComputeAgentCache()
+	gService := newGRPCService(agentCache)
+
+	// test network
+	network, err := createTestNATNetwork(t.Name() + "network")
+	if err != nil {
+		t.Fatalf("failed to create test network with %v", err)
+	}
+	defer func() {
+		_ = network.Delete()
+	}()
+
+	endpoint, err := createTestEndpoint(testEndpointName, network.Id)
+	if err != nil {
+		t.Fatalf("failed to create test endpoint with %v", err)
+	}
+	// defer cleanup in case of error. ignore error from the delete call here
+	// since we may have already successfully deleted the endpoint.
+	defer func() {
+		_ = endpoint.Delete()
+	}()
 
 	// create mocked compute agent service
 	computeAgentCtrl := gomock.NewController(t)
@@ -265,7 +412,97 @@ func TestDeleteNIC(t *testing.T) {
 	}
 }
 
-func TestModifyNIC(t *testing.T) {
+func TestDeleteNIC_Custom(t *testing.T) {
+	ctx := context.Background()
+
+	var (
+		containerID      = t.Name() + "-containerID"
+		testNICID        = t.Name() + "-nicID"
+		testEndpointName = t.Name() + "-endpoint"
+	)
+
+	// setup test ncproxy grpc service
+	agentCache := newComputeAgentCache()
+	gService := newGRPCService(agentCache)
+
+	// create mocked compute agent service
+	computeAgentCtrl := gomock.NewController(t)
+	defer computeAgentCtrl.Finish()
+	mockedService := ncproxyMock.NewMockComputeAgentService(computeAgentCtrl)
+	mockedAgentClient := &computeAgentClient{nil, mockedService}
+
+	// put mocked compute agent in agent cache for test
+	if err := agentCache.put(containerID, mockedAgentClient); err != nil {
+		t.Fatal(err)
+	}
+
+	// setup expected mocked calls
+	mockedService.EXPECT().DeleteNIC(gomock.Any(), gomock.Any()).Return(&computeagent.DeleteNICInternalResponse{}, nil).AnyTimes()
+
+	// add entry to cache of custom endpoints
+	endpoint := &networking.NCProxyEndpoint{
+		EndpointName: testEndpointName,
+	}
+	gService.ccn.endpoints.put(testEndpointName, endpoint)
+
+	type config struct {
+		name          string
+		containerID   string
+		nicID         string
+		endpointName  string
+		errorExpected bool
+	}
+	tests := []config{
+		{
+			name:          "DeleteNIC returns no error",
+			containerID:   containerID,
+			nicID:         testNICID,
+			endpointName:  testEndpointName,
+			errorExpected: false,
+		},
+		{
+			name:          "DeleteNIC returns error with blank container ID",
+			containerID:   "",
+			nicID:         testNICID,
+			endpointName:  testEndpointName,
+			errorExpected: true,
+		},
+		{
+			name:          "DeleteNIC returns error with blank nic ID",
+			containerID:   containerID,
+			nicID:         "",
+			endpointName:  testEndpointName,
+			errorExpected: true,
+		},
+		{
+			name:          "DeleteNIC returns error with blank endpoint name",
+			containerID:   containerID,
+			nicID:         testNICID,
+			endpointName:  "",
+			errorExpected: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(_ *testing.T) {
+			req := &ncproxygrpc.DeleteNICRequest{
+				ContainerID:  test.containerID,
+				NicID:        test.nicID,
+				EndpointName: test.endpointName,
+			}
+
+			_, err := gService.DeleteNIC(ctx, req)
+			if test.errorExpected && err == nil {
+				t.Fatalf("expected DeleteNIC to return an error")
+			}
+			if !test.errorExpected && err != nil {
+				t.Fatalf("expected DeleteNIC to return no error, instead got %v", err)
+			}
+		})
+	}
+}
+
+func TestModifyNIC_HCN(t *testing.T) {
 	// support for setting IOV policy was added in 21H1
 	if osversion.Build() < osversion.V21H1 {
 		t.Skip("Requires build +21H1")
@@ -382,11 +619,20 @@ func TestModifyNIC(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(_ *testing.T) {
+			endpoint := &ncproxygrpc.HcnEndpointSettings{
+				Policies: &ncproxygrpc.HcnEndpointPolicies{
+					IovPolicySettings: test.iovPolicySettings,
+				},
+			}
 			req := &ncproxygrpc.ModifyNICRequest{
-				ContainerID:       test.containerID,
-				NicID:             test.nicID,
-				EndpointName:      test.endpointName,
-				IovPolicySettings: test.iovPolicySettings,
+				ContainerID:  test.containerID,
+				NicID:        test.nicID,
+				EndpointName: test.endpointName,
+				EndpointSettings: &ncproxygrpc.EndpointSettings{
+					Settings: &ncproxygrpc.EndpointSettings_HcnEndpoint{
+						HcnEndpoint: endpoint,
+					},
+				},
 			}
 
 			_, err := gService.ModifyNIC(ctx, req)
@@ -400,7 +646,59 @@ func TestModifyNIC(t *testing.T) {
 	}
 }
 
-func TestCreateNetwork(t *testing.T) {
+func TestModifyNIC_Custom_Returns_Error(t *testing.T) {
+	ctx := context.Background()
+
+	// setup test ncproxy grpc service
+	agentCache := newComputeAgentCache()
+	gService := newGRPCService(agentCache)
+
+	var (
+		containerID      = t.Name() + "-containerID"
+		testNICID        = t.Name() + "-nicID"
+		testEndpointName = t.Name() + "-endpoint"
+	)
+
+	// create mock compute agent service
+	computeAgentCtrl := gomock.NewController(t)
+	defer computeAgentCtrl.Finish()
+	mockedService := ncproxyMock.NewMockComputeAgentService(computeAgentCtrl)
+	mockedAgentClient := &computeAgentClient{nil, mockedService}
+
+	// populate agent cache with mocked service for test
+	if err := agentCache.put(containerID, mockedAgentClient); err != nil {
+		t.Fatal(err)
+	}
+
+	// setup expected mocked calls
+	mockedService.EXPECT().ModifyNIC(gomock.Any(), gomock.Any()).Return(&computeagent.ModifyNICInternalResponse{}, nil).AnyTimes()
+
+	// add entry to cache of custom endpoints
+	endpoint := &networking.NCProxyEndpoint{
+		EndpointName: testEndpointName,
+	}
+	gService.ccn.endpoints.put(testEndpointName, endpoint)
+
+	// create request
+	settings := &ncproxygrpc.NCProxyEndpointSettings{}
+	req := &ncproxygrpc.ModifyNICRequest{
+		ContainerID:  containerID,
+		NicID:        testNICID,
+		EndpointName: testEndpointName,
+		EndpointSettings: &ncproxygrpc.EndpointSettings{
+			Settings: &ncproxygrpc.EndpointSettings_NcproxyEndpoint{
+				NcproxyEndpoint: settings,
+			},
+		},
+	}
+
+	_, err := gService.ModifyNIC(ctx, req)
+	if err == nil {
+		t.Fatal("expected ModifyNIC to return an error for a custom endpoint")
+	}
+}
+
+func TestCreateNetwork_HCN(t *testing.T) {
 	ctx := context.Background()
 
 	// setup test ncproxy grpc service
@@ -427,9 +725,17 @@ func TestCreateNetwork(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(_ *testing.T) {
-			req := &ncproxygrpc.CreateNetworkRequest{
+			network := &ncproxygrpc.HostComputeNetworkSettings{
 				Name: test.networkName,
-				Mode: ncproxygrpc.CreateNetworkRequest_NAT,
+				Mode: ncproxygrpc.HostComputeNetworkSettings_NAT,
+			}
+			req := &ncproxygrpc.CreateNetworkRequest{
+				ContainerID: "fake-container-ID",
+				Network: &ncproxygrpc.Network{
+					Settings: &ncproxygrpc.Network_HcnNetwork{
+						HcnNetwork: network,
+					},
+				},
 			}
 			_, err := gService.CreateNetwork(ctx, req)
 			if test.errorExpected && err == nil {
@@ -454,7 +760,76 @@ func TestCreateNetwork(t *testing.T) {
 	}
 }
 
-func TestCreateEndpoint(t *testing.T) {
+func TestCreateNetwork_Custom(t *testing.T) {
+	ctx := context.Background()
+
+	containerID := t.Name() + "-test"
+	// setup test ncproxy grpc service
+	agentCache := newComputeAgentCache()
+	gService := newGRPCService(agentCache)
+
+	// create mock compute agent service
+	computeAgentCtrl := gomock.NewController(t)
+	defer computeAgentCtrl.Finish()
+	mockedService := ncproxyMock.NewMockComputeAgentService(computeAgentCtrl)
+	mockedAgentClient := &computeAgentClient{nil, mockedService}
+
+	// populate agent cache with mocked service for test
+	if err := agentCache.put(containerID, mockedAgentClient); err != nil {
+		t.Fatal(err)
+	}
+
+	// setup expected mocked calls
+	mockedService.EXPECT().AssignPCI(gomock.Any(), gomock.Any()).Return(&computeagent.AssignPCIInternalResponse{}, nil).AnyTimes()
+
+	type config struct {
+		name          string
+		networkName   string
+		errorExpected bool
+	}
+	tests := []config{
+		{
+			name:          "CreateNetwork returns no error",
+			networkName:   t.Name() + "-network",
+			errorExpected: false,
+		},
+		{
+			name:          "CreateNetwork returns error with blank network name",
+			networkName:   "",
+			errorExpected: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(_ *testing.T) {
+			network := &ncproxygrpc.NCProxyNetworkSettings{
+				Name:     test.networkName,
+				DeviceID: t.Name() + "-deviceID-test",
+			}
+			req := &ncproxygrpc.CreateNetworkRequest{
+				ContainerID: containerID,
+				Network: &ncproxygrpc.Network{
+					Settings: &ncproxygrpc.Network_NcproxyNetwork{
+						NcproxyNetwork: network,
+					},
+				},
+			}
+			_, err := gService.CreateNetwork(ctx, req)
+			if test.errorExpected && err == nil {
+				t.Fatalf("expected CreateNetwork to return an error")
+			}
+
+			if !test.errorExpected {
+				_, ok := gService.ccn.networks.get(test.networkName)
+				if !ok {
+					t.Fatal("failed to find created network")
+				}
+			}
+		})
+	}
+}
+
+func TestCreateEndpoint_HCN(t *testing.T) {
 	ctx := context.Background()
 
 	// setup test ncproxy grpc service
@@ -513,12 +888,20 @@ func TestCreateEndpoint(t *testing.T) {
 	for i, test := range tests {
 		t.Run(test.name, func(_ *testing.T) {
 			endpointName := t.Name() + "-endpoint-" + strconv.Itoa(i)
-			req := &ncproxygrpc.CreateEndpointRequest{
+			endpoint := &ncproxygrpc.HcnEndpointSettings{
 				Name:                  endpointName,
 				Macaddress:            test.macaddress,
 				Ipaddress:             test.ipaddress,
-				IpaddressPrefixlength: "24",
+				IpaddressPrefixlength: 24,
 				NetworkName:           test.networkName,
+			}
+			req := &ncproxygrpc.CreateEndpointRequest{
+				ContainerID: "test-container-name",
+				EndpointSettings: &ncproxygrpc.EndpointSettings{
+					Settings: &ncproxygrpc.EndpointSettings_HcnEndpoint{
+						HcnEndpoint: endpoint,
+					},
+				},
 			}
 
 			_, err = gService.CreateEndpoint(ctx, req)
@@ -538,6 +921,92 @@ func TestCreateEndpoint(t *testing.T) {
 				if err := ep.Delete(); err != nil {
 					t.Fatalf("failed to delete endpoint created for test %v", err)
 				}
+			}
+		})
+	}
+}
+
+func TestCreateEndpoint_Custom(t *testing.T) {
+	ctx := context.Background()
+
+	// setup test ncproxy grpc service
+	agentCache := newComputeAgentCache()
+	gService := newGRPCService(agentCache)
+
+	networkName := t.Name() + "-network"
+	network := &networking.NCProxyNetwork{
+		NetworkName: networkName,
+	}
+	gService.ccn.networks.put(networkName, network)
+
+	type config struct {
+		name          string
+		networkName   string
+		ipaddress     string
+		macaddress    string
+		errorExpected bool
+	}
+
+	tests := []config{
+		{
+			name:          "CreateEndpoint returns no error",
+			networkName:   networkName,
+			ipaddress:     "192.168.100.4",
+			macaddress:    "00-15-5D-52-C0-00",
+			errorExpected: false,
+		},
+		{
+			name:          "CreateEndpoint returns error when network name is empty",
+			networkName:   "",
+			ipaddress:     "192.168.100.4",
+			macaddress:    "00-15-5D-52-C0-00",
+			errorExpected: true,
+		},
+		{
+			name:          "CreateEndpoint returns error when ip address is empty",
+			networkName:   networkName,
+			ipaddress:     "",
+			macaddress:    "00-15-5D-52-C0-00",
+			errorExpected: true,
+		},
+		{
+			name:          "CreateEndpoint returns error when mac address is empty",
+			networkName:   networkName,
+			ipaddress:     "192.168.100.4",
+			macaddress:    "",
+			errorExpected: true,
+		},
+	}
+
+	for i, test := range tests {
+		t.Run(test.name, func(_ *testing.T) {
+			endpointName := t.Name() + "-endpoint-" + strconv.Itoa(i)
+			endpoint := &ncproxygrpc.NCProxyEndpointSettings{
+				Name:                  endpointName,
+				Macaddress:            test.macaddress,
+				Ipaddress:             test.ipaddress,
+				IpaddressPrefixlength: 24,
+				NetworkName:           test.networkName,
+			}
+			req := &ncproxygrpc.CreateEndpointRequest{
+				ContainerID: "test-container-name",
+				EndpointSettings: &ncproxygrpc.EndpointSettings{
+					Settings: &ncproxygrpc.EndpointSettings_NcproxyEndpoint{
+						NcproxyEndpoint: endpoint,
+					},
+				},
+			}
+
+			_, err := gService.CreateEndpoint(ctx, req)
+			if test.errorExpected && err == nil {
+				t.Fatalf("expected CreateEndpoint to return an error")
+			}
+			if !test.errorExpected {
+				_, ok := gService.ccn.endpoints.get(endpointName)
+				if !ok {
+					t.Fatal("failed to find created endpoint")
+				}
+				// TODO katiewasnothere: handle the store as well
 			}
 		})
 	}
@@ -1055,7 +1524,7 @@ func TestRegisterComputeAgent(t *testing.T) {
 	defer db.Close()
 
 	// create test TTRPC service
-	store := newComputeAgentStore(db)
+	store := ncproxystore.NewComputeAgentStore(db)
 	agentCache := newComputeAgentCache()
 	tService := newTTRPCService(ctx, agentCache, store)
 
@@ -1104,7 +1573,7 @@ func TestConfigureNetworking(t *testing.T) {
 	defer db.Close()
 
 	// create test TTRPC service
-	store := newComputeAgentStore(db)
+	store := ncproxystore.NewComputeAgentStore(db)
 	agentCache := newComputeAgentCache()
 	tService := newTTRPCService(ctx, agentCache, store)
 
@@ -1186,7 +1655,7 @@ func TestReconnectComputeAgents_Success(t *testing.T) {
 	defer db.Close()
 
 	// create test TTRPC service
-	store := newComputeAgentStore(db)
+	store := ncproxystore.NewComputeAgentStore(db)
 	agentCache := newComputeAgentCache()
 
 	// setup mocked calls
@@ -1202,7 +1671,7 @@ func TestReconnectComputeAgents_Success(t *testing.T) {
 	containerID := "fake-container-id"
 	address := "123412341234"
 
-	if err := store.updateComputeAgent(ctx, containerID, address); err != nil {
+	if err := store.UpdateComputeAgent(ctx, containerID, address); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1235,7 +1704,7 @@ func TestReconnectComputeAgents_Failure(t *testing.T) {
 	defer db.Close()
 
 	// create test TTRPC service
-	store := newComputeAgentStore(db)
+	store := ncproxystore.NewComputeAgentStore(db)
 	agentCache := newComputeAgentCache()
 
 	// setup mocked calls
@@ -1252,7 +1721,7 @@ func TestReconnectComputeAgents_Failure(t *testing.T) {
 	containerID := "fake-container-id"
 	address := "123412341234"
 
-	if err := store.updateComputeAgent(ctx, containerID, address); err != nil {
+	if err := store.UpdateComputeAgent(ctx, containerID, address); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1268,7 +1737,7 @@ func TestReconnectComputeAgents_Failure(t *testing.T) {
 	}
 
 	// validate that the agent store no longer has an entry for this container
-	value, err := store.getComputeAgent(ctx, containerID)
+	value, err := store.GetComputeAgent(ctx, containerID)
 	if err == nil {
 		t.Fatalf("expected an error, instead found value %s", value)
 	}
