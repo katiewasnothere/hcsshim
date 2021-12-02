@@ -297,11 +297,12 @@ func CreateContainer(ctx context.Context, createOptions *CreateOptions) (_ cow.C
 		// install kernel drivers if necessary.
 		// do this before network setup in case any of the drivers requested are
 		// network drivers
-		driverClosers, err := installPodDrivers(ctx, coi.HostingSystem, coi.Spec.Annotations)
+		driverClosers, env, err := addSpecGuestDrivers(ctx, coi.HostingSystem, coi.Spec.Process.Env, coi.Spec.Annotations)
 		if err != nil {
 			return nil, r, err
 		}
 		r.Add(driverClosers...)
+		coi.Spec.Process.Env = env
 	}
 
 	ct, _, err := oci.GetSandboxTypeAndID(coi.Spec.Annotations)

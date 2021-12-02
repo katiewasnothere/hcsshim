@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/Microsoft/hcsshim/internal/devices"
 	hcsschema "github.com/Microsoft/hcsshim/internal/hcs/schema2"
@@ -163,6 +164,11 @@ func handleAssignedDevicesWindows(
 	return resultDevs, closers, nil
 }
 
+type driver struct {
+	closer   resources.ResourceCloser
+	uvmPaths []string
+}
+
 // handleAssignedDevicesLCOW does all of the work to setup the hosting UVM, assign in devices
 // specified on the spec
 //
@@ -171,8 +177,9 @@ func handleAssignedDevicesWindows(
 func handleAssignedDevicesLCOW(
 	ctx context.Context,
 	vm *uvm.UtilityVM,
+	env []string,
 	annotations map[string]string,
-	specDevs []specs.WindowsDevice) (resultDevs []specs.WindowsDevice, closers []resources.ResourceCloser, err error) {
+	specDevs []specs.WindowsDevice) (resultDevs []specs.WindowsDevice, closers []resources.ResourceCloser, resultEnv []string, err error) {
 
 	defer func() {
 		if err != nil {
@@ -197,7 +204,7 @@ func handleAssignedDevicesLCOW(
 			pciID, index := getDeviceInfoFromPath(d.ID)
 			vpci, err := vm.AssignDevice(ctx, pciID, index, "")
 			if err != nil {
-				return resultDevs, closers, errors.Wrapf(err, "failed to assign device %s, function %d to pod %s", pciID, index, vm.ID())
+				return resultDevs, closers, resultEnv, errors.Wrapf(err, "failed to assign device %s, function %d to pod %s", pciID, index, vm.ID())
 			}
 			closers = append(closers, vpci)
 
@@ -206,38 +213,50 @@ func handleAssignedDevicesLCOW(
 			d.ID = vpci.VMBusGUID
 			resultDevs = append(resultDevs, d)
 		default:
-			return resultDevs, closers, errors.Errorf("specified device %s has unsupported type %s", d.ID, d.IDType)
+			return resultDevs, closers, resultEnv, errors.Errorf("specified device %s has unsupported type %s", d.ID, d.IDType)
 		}
 	}
 
 	if gpuPresent {
 		gpuSupportVhdPath, err := getGPUVHDPath(annotations)
 		if err != nil {
-			return resultDevs, closers, errors.Wrapf(err, "failed to add gpu vhd to %v", vm.ID())
+			return resultDevs, closers, nil, errors.Wrapf(err, "failed to add gpu vhd to %v", vm.ID())
 		}
 		// use lcowNvidiaMountPath since we only support nvidia gpus right now
 		// must use scsi here since DDA'ing a hyper-v pci device is not supported on VMs that have ANY virtual memory
 		// gpuvhd must be granted VM Group access.
-		options := []string{"ro"}
-		scsiMount, err := vm.AddSCSI(
-			ctx,
-			gpuSupportVhdPath,
-			uvm.LCOWNvidiaMountPath,
-			true,
-			false,
-			options,
-			uvm.VMAccessTypeNoop,
-		)
+		driverCloser, uvmDriverPath, err := devices.InstallKernelDriver(ctx, vm, gpuSupportVhdPath)
 		if err != nil {
-			return resultDevs, closers, errors.Wrapf(err, "failed to add scsi device %s in the UVM %s at %s", gpuSupportVhdPath, vm.ID(), uvm.LCOWNvidiaMountPath)
+			return resultDevs, closers, nil, err
 		}
-		closers = append(closers, scsiMount)
+		closers = append(closers, driverCloser)
+		resultEnv = updatePathEnv(env, []string{uvmDriverPath})
 	}
 
-	return resultDevs, closers, nil
+	return resultDevs, closers, resultEnv, nil
 }
 
-func installPodDrivers(ctx context.Context, vm *uvm.UtilityVM, annotations map[string]string) (closers []resources.ResourceCloser, err error) {
+func updatePathEnv(env []string, uvmDriverPaths []string) []string {
+	binPaths := make([]string, len(uvmDriverPaths))
+	for i, d := range uvmDriverPaths {
+		binPaths[i] = fmt.Sprintf("%s/bin:%s/sbin:%s/usr/bin:%s/usr/sbin", d, d, d, d)
+	}
+	binPathsString := strings.Join(binPaths, ":")
+	pathPrefix := "PATH="
+	for i, variableName := range env {
+		if strings.HasPrefix(variableName, pathPrefix) {
+			newPath := fmt.Sprintf("%s:%s", variableName, binPathsString)
+			env[i] = newPath
+			return env
+		}
+	}
+	// if we're here, there was no path variable in the env, add one
+	return append(env, fmt.Sprintf("%s:%s", pathPrefix, binPathsString))
+}
+
+// addSpecGuestDrivers is a helper function to install kernel drivers specified on a spec into the guest
+// and update the spec's environment variables to contain the driver bins
+func addSpecGuestDrivers(ctx context.Context, vm *uvm.UtilityVM, env []string, annotations map[string]string) (closers []resources.ResourceCloser, _ []string, err error) {
 	defer func() {
 		if err != nil {
 			// best effort clean up allocated resources on failure
@@ -250,18 +269,22 @@ func installPodDrivers(ctx context.Context, vm *uvm.UtilityVM, annotations map[s
 	}()
 
 	// get the spec specified kernel drivers and install them on the UVM
-	drivers, err := getSpecKernelDrivers(annotations)
+	specDrivers, err := getSpecKernelDrivers(annotations)
 	if err != nil {
-		return closers, err
+		return closers, nil, err
 	}
-	for _, d := range drivers {
-		driverCloser, err := devices.InstallKernelDriver(ctx, vm, d)
+	driverGuestPaths := make([]string, len(specDrivers))
+	for i, d := range specDrivers {
+		driverCloser, uvmDriverPath, err := devices.InstallKernelDriver(ctx, vm, d)
 		if err != nil {
-			return closers, err
+			return closers, nil, err
 		}
 		closers = append(closers, driverCloser)
+		driverGuestPaths[i] = uvmDriverPath
 	}
-	return closers, err
+
+	resultEnv := updatePathEnv(env, driverGuestPaths)
+	return closers, resultEnv, err
 }
 
 func getDeviceInfoFromPath(rawDevicePath string) (string, uint16) {

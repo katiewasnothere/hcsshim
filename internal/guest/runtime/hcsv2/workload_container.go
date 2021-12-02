@@ -13,6 +13,7 @@ import (
 	"github.com/Microsoft/hcsshim/pkg/annotations"
 	oci "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
 	"golang.org/x/sys/unix"
 )
@@ -192,14 +193,15 @@ func setupWorkloadContainerSpec(ctx context.Context, sbid, id string, spec *oci.
 	if spec.Windows != nil {
 		if specHasGPUDevice(spec) {
 			// we only support Nvidia gpus right now
-			ldConfigargs := []string{"-l", "/run/nvidia/lib"}
-			env := updateEnvWithNvidiaVariables()
+			ldConfigargs := []string{"/run/mounts/m3/usr/lib"}
+			env := updateEnvWithNvidiaVariables() // TODO katiewasnothere: fix this
 			if err := addLDConfigHook(ctx, spec, ldConfigargs, env); err != nil {
 				return err
 			}
 			if err := addNvidiaDevicePreHook(ctx, spec); err != nil {
 				return err
 			}
+			logrus.WithField("spec", spec).Info("gpu scenario spec")
 		}
 		// add other assigned devices to the spec
 		if err := addAssignedDevice(ctx, spec); err != nil {

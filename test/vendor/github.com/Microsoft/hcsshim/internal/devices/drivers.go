@@ -23,7 +23,7 @@ import (
 //
 // Returns a ResourceCloser for the added mount. On failure, the mounted share will be released,
 // the returned ResourceCloser will be nil, and an error will be returned.
-func InstallKernelDriver(ctx context.Context, vm *uvm.UtilityVM, driver string) (closer resources.ResourceCloser, err error) {
+func InstallKernelDriver(ctx context.Context, vm *uvm.UtilityVM, driver string) (closer resources.ResourceCloser, _ string, err error) {
 	defer func() {
 		if err != nil && closer != nil {
 			// best effort clean up allocated resource on failure
@@ -37,20 +37,20 @@ func InstallKernelDriver(ctx context.Context, vm *uvm.UtilityVM, driver string) 
 		options := vm.DefaultVSMBOptions(true)
 		closer, err = vm.AddVSMB(ctx, driver, options)
 		if err != nil {
-			return closer, fmt.Errorf("failed to add VSMB share to utility VM for path %+v: %s", driver, err)
+			return closer, "", fmt.Errorf("failed to add VSMB share to utility VM for path %+v: %s", driver, err)
 		}
 		uvmPath, err := vm.GetVSMBUvmPath(ctx, driver, true)
 		if err != nil {
-			return closer, err
+			return closer, "", err
 		}
-		return closer, execPnPInstallDriver(ctx, vm, uvmPath)
+		return closer, uvmPath, execPnPInstallDriver(ctx, vm, uvmPath)
 	}
 	uvmPathForShare := fmt.Sprintf(uvm.LCOWGlobalMountPrefix, vm.UVMMountCounter())
 	scsiCloser, err := vm.AddSCSI(ctx, driver, uvmPathForShare, true, false, []string{}, uvm.VMAccessTypeIndividual)
 	if err != nil {
-		return closer, fmt.Errorf("failed to add SCSI disk to utility VM for path %+v: %s", driver, err)
+		return closer, "", fmt.Errorf("failed to add SCSI disk to utility VM for path %+v: %s", driver, err)
 	}
-	return scsiCloser, execModprobeInstallDriver(ctx, vm, uvmPathForShare)
+	return scsiCloser, uvmPathForShare, execModprobeInstallDriver(ctx, vm, uvmPathForShare)
 }
 
 func execModprobeInstallDriver(ctx context.Context, vm *uvm.UtilityVM, driverDir string) error {

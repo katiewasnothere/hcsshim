@@ -47,7 +47,7 @@ func addNvidiaDevicePreHook(ctx context.Context, spec *oci.Spec) error {
 		"--load-kmods",
 		"--no-pivot",
 		"configure",
-		"--ldconfig=@/sbin/ldconfig",
+		"--ldconfig=/sbin/ldconfig",
 	}
 	if capabilities, ok := spec.Annotations[annotations.ContainerGPUCapabilities]; ok {
 		caps := strings.Split(capabilities, ",")
@@ -89,16 +89,17 @@ func addNvidiaDevicePreHook(ctx context.Context, spec *oci.Spec) error {
 // updateEnvWithNvidiaVariables creates an env with the nvidia gpu vhd in PATH and insecure mode set
 func updateEnvWithNvidiaVariables() []string {
 	pathPrefix := "PATH="
-	nvidiaBin := fmt.Sprintf("%s/bin", lcowNvidiaMountPath)
+	nvidiaUsrBin := fmt.Sprintf("%s/usr/bin", "/run/mounts/m3") // TODO katiewasnothere: fix this
 	env := os.Environ()
 	for i, v := range env {
 		if strings.HasPrefix(v, pathPrefix) {
-			newPath := fmt.Sprintf("%s:%s", v, nvidiaBin)
+			newPath := fmt.Sprintf("%s:%s:", v, nvidiaUsrBin)
 			env[i] = newPath
 		}
 	}
 	// NVC_INSECURE_MODE allows us to run nvidia-container-cli without seccomp
 	// we don't currently use seccomp in the uvm, so avoid using it here for now as well
 	env = append(env, "NVC_INSECURE_MODE=1")
+	env = append(env, "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/run/mounts/m3/usr/lib")
 	return env
 }

@@ -157,12 +157,13 @@ func allocateLinuxResources(ctx context.Context, coi *createOptionsInternal, r *
 
 	if coi.HostingSystem != nil {
 		if coi.hasWindowsAssignedDevices() {
-			windowsDevices, closers, err := handleAssignedDevicesLCOW(ctx, coi.HostingSystem, coi.Spec.Annotations, coi.Spec.Windows.Devices)
+			windowsDevices, closers, env, err := handleAssignedDevicesLCOW(ctx, coi.HostingSystem, coi.Spec.Process.Env, coi.Spec.Annotations, coi.Spec.Windows.Devices)
 			if err != nil {
 				return err
 			}
 			r.Add(closers...)
 			coi.Spec.Windows.Devices = windowsDevices
+			coi.Spec.Process.Env = env
 		}
 	}
 	return nil
