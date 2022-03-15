@@ -7,6 +7,13 @@ import (
 	"github.com/Microsoft/hcsshim/hcn"
 	ncproxygrpc "github.com/Microsoft/hcsshim/pkg/ncproxy/ncproxygrpc/v1"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+const (
+	destinationPrefixIPv4 = "0.0.0.0/0"
+	destinationPrefixIPv6 = "::/0"
 )
 
 func hcnEndpointToEndpointResponse(ep *hcn.HostComputeEndpoint) (_ *ncproxygrpc.GetEndpointResponse, err error) {
@@ -18,6 +25,14 @@ func hcnEndpointToEndpointResponse(ep *hcn.HostComputeEndpoint) (_ *ncproxygrpc.
 	if len(ipConfigInfo) == 0 {
 		return nil, errors.Errorf("failed to find network %v ip configuration information", ep.Name)
 	}
+	ipConfigResp := make([]*ncproxygrpc.IPConfig, len(ipConfigInfo))
+	for i, c := range ipConfigInfo {
+		config := &ncproxygrpc.IPConfig{
+			Ipaddress:    c.IpAddress,
+			PrefixLength: uint32(c.PrefixLength),
+		}
+		ipConfigResp[i] = config
+	}
 
 	return &ncproxygrpc.GetEndpointResponse{
 		Namespace: ep.HostComputeNamespace,
@@ -25,13 +40,11 @@ func hcnEndpointToEndpointResponse(ep *hcn.HostComputeEndpoint) (_ *ncproxygrpc.
 		Endpoint: &ncproxygrpc.EndpointSettings{
 			Settings: &ncproxygrpc.EndpointSettings_HcnEndpoint{
 				HcnEndpoint: &ncproxygrpc.HcnEndpointSettings{
-					Name:       ep.Name,
-					Macaddress: ep.MacAddress,
-					// only use the first ip config returned since we only expect there to be one
-					Ipaddress:             ep.IpConfigurations[0].IpAddress,
-					IpaddressPrefixlength: uint32(ep.IpConfigurations[0].PrefixLength),
-					NetworkName:           ep.HostComputeNetwork,
-					Policies:              policies,
+					Name:        ep.Name,
+					Macaddress:  ep.MacAddress,
+					Ipaddresses: ipConfigResp,
+					NetworkName: ep.HostComputeNetwork,
+					Policies:    policies,
 					DnsSetting: &ncproxygrpc.DnsSetting{
 						ServerIpAddrs: ep.Dns.ServerList,
 						Domain:        ep.Dns.Domain,
@@ -164,14 +177,19 @@ func createHCNNetwork(ctx context.Context, req *ncproxygrpc.HostComputeNetworkSe
 		policies = append(policies, netPolicy)
 	}
 
-	subnets := make([]hcn.Subnet, len(req.SubnetIpaddressPrefix))
-	for i, addrPrefix := range req.SubnetIpaddressPrefix {
+	subnets := make([]hcn.Subnet, len(req.SubnetConfigs))
+	for i, c := range req.SubnetConfigs {
+		// TODO katiewasnothere: clean this up
+		destinationPrefix := destinationPrefixIPv4
+		if isIPv6(c.SubnetIpaddressPrefix) {
+			destinationPrefix = destinationPrefixIPv6
+		}
 		subnet := hcn.Subnet{
-			IpAddressPrefix: addrPrefix,
+			IpAddressPrefix: c.SubnetIpaddressPrefix,
 			Routes: []hcn.Route{
 				{
-					NextHop:           req.DefaultGateway,
-					DestinationPrefix: "0.0.0.0/0",
+					NextHop:           c.DefaultGateway,
+					DestinationPrefix: destinationPrefix,
 				},
 			},
 		}
@@ -204,26 +222,26 @@ func createHCNNetwork(ctx context.Context, req *ncproxygrpc.HostComputeNetworkSe
 
 func hcnNetworkToNetworkResponse(network *hcn.HostComputeNetwork) (*ncproxygrpc.GetNetworkResponse, error) {
 	var (
-		ipamType                int32
-		defaultGateway          string
-		switchName              string
-		subnetIPAddressPrefixes []string
+		ipamType      int32
+		switchName    string
+		subnetConfigs []*ncproxygrpc.SubnetConfig
 	)
 
 	for _, ipam := range network.Ipams {
 		for _, subnet := range ipam.Subnets {
-			subnetIPAddressPrefixes = append(subnetIPAddressPrefixes, subnet.IpAddressPrefix)
+			config := &ncproxygrpc.SubnetConfig{
+				SubnetIpaddressPrefix: subnet.IpAddressPrefix,
+				// only use the first route
+				// TODO katiewasnothere: do any routes get combined? what if this isn't true
+				DefaultGateway: subnet.Routes[0].NextHop,
+			}
+			subnetConfigs = append(subnetConfigs, config)
 		}
 	}
 
 	if len(network.Ipams) > 0 {
 		// only use the first ipam type returned since we expect that to the the same type for all subnets added
 		ipamType = ncproxygrpc.HostComputeNetworkSettings_IpamType_value[network.Ipams[0].Type]
-		if len(network.Ipams[0].Subnets) > 0 && len(network.Ipams[0].Subnets[0].Routes) > 0 {
-			// only use the first route as we expect all routes to use the default gateway as the next
-			// see createHCNNetwork.
-			defaultGateway = network.Ipams[0].Subnets[0].Routes[0].NextHop
-		}
 	}
 
 	mode := ncproxygrpc.HostComputeNetworkSettings_NetworkMode_value[string(network.Type)]
@@ -237,12 +255,11 @@ func hcnNetworkToNetworkResponse(network *hcn.HostComputeNetwork) (*ncproxygrpc.
 	}
 
 	settings := &ncproxygrpc.HostComputeNetworkSettings{
-		Name:                  network.Name,
-		Mode:                  ncproxygrpc.HostComputeNetworkSettings_NetworkMode(mode),
-		SwitchName:            switchName,
-		IpamType:              ncproxygrpc.HostComputeNetworkSettings_IpamType(ipamType),
-		SubnetIpaddressPrefix: subnetIPAddressPrefixes,
-		DefaultGateway:        defaultGateway,
+		Name:          network.Name,
+		Mode:          ncproxygrpc.HostComputeNetworkSettings_NetworkMode(mode),
+		SwitchName:    switchName,
+		IpamType:      ncproxygrpc.HostComputeNetworkSettings_IpamType(ipamType),
+		SubnetConfigs: subnetConfigs,
 	}
 
 	return &ncproxygrpc.GetNetworkResponse{
@@ -257,9 +274,17 @@ func hcnNetworkToNetworkResponse(network *hcn.HostComputeNetwork) (*ncproxygrpc.
 
 func createHCNEndpoint(ctx context.Context, network *hcn.HostComputeNetwork, req *ncproxygrpc.HcnEndpointSettings) (*hcn.HostComputeEndpoint, error) {
 	// Construct ip config.
-	ipConfig := hcn.IpConfig{
-		IpAddress:    req.Ipaddress,
-		PrefixLength: uint8(req.IpaddressPrefixlength),
+	if req.Ipaddresses == nil {
+		return nil, status.Errorf(codes.InvalidArgument, "received empty field for ip configuration in request: %+v", req)
+	}
+
+	ipConfigs := make([]hcn.IpConfig, len(req.Ipaddresses))
+	for i, ip := range req.Ipaddresses {
+		config := hcn.IpConfig{
+			IpAddress:    ip.Ipaddress,
+			PrefixLength: uint8(ip.PrefixLength),
+		}
+		ipConfigs[i] = config
 	}
 
 	var err error
@@ -275,7 +300,7 @@ func createHCNEndpoint(ctx context.Context, network *hcn.HostComputeNetwork, req
 		Name:               req.Name,
 		HostComputeNetwork: network.Id,
 		MacAddress:         req.Macaddress,
-		IpConfigurations:   []hcn.IpConfig{ipConfig},
+		IpConfigurations:   ipConfigs,
 		Policies:           policies,
 		SchemaVersion: hcn.SchemaVersion{
 			Major: 2,

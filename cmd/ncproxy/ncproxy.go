@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/Microsoft/go-winio"
@@ -59,6 +60,10 @@ func newGRPCService(agentCache *computeAgentCache, ncproxyNetworking *ncproxysto
 }
 
 var _ ncproxygrpc.NetworkConfigProxyServer = &grpcService{}
+
+func isIPv6(address string) bool {
+	return strings.Count(address, ":") >= 2
+}
 
 func (s *grpcService) AddNIC(ctx context.Context, req *ncproxygrpc.AddNICRequest) (_ *ncproxygrpc.AddNICResponse, err error) {
 	ctx, span := trace.StartSpan(ctx, "AddNIC")
@@ -371,10 +376,9 @@ func (s *grpcService) CreateEndpoint(ctx context.Context, req *ncproxygrpc.Creat
 		span.AddAttributes(
 			trace.StringAttribute("macAddr", reqEndpoint.Macaddress),
 			trace.StringAttribute("endpointName", reqEndpoint.Name),
-			trace.StringAttribute("ipAddr", reqEndpoint.Ipaddress),
 			trace.StringAttribute("networkName", reqEndpoint.NetworkName))
 
-		if reqEndpoint.Name == "" || reqEndpoint.Ipaddress == "" || reqEndpoint.Macaddress == "" || reqEndpoint.NetworkName == "" {
+		if reqEndpoint.Name == "" || reqEndpoint.Macaddress == "" || reqEndpoint.NetworkName == "" {
 			return nil, status.Errorf(codes.InvalidArgument, "received empty field in request: %+v", req)
 		}
 
@@ -395,6 +399,7 @@ func (s *grpcService) CreateEndpoint(ctx context.Context, req *ncproxygrpc.Creat
 	case *ncproxygrpc.EndpointSettings_NcproxyEndpoint:
 		// get the network stored, create endpoint data and store
 		reqEndpoint := req.EndpointSettings.GetNcproxyEndpoint()
+		// TODO katiewasnothere: should we add dual stack for ncproxy type as well?
 		if reqEndpoint.Name == "" || reqEndpoint.Ipaddress == "" || reqEndpoint.Macaddress == "" || reqEndpoint.NetworkName == "" || reqEndpoint.DeviceDetails == nil {
 			return nil, status.Errorf(codes.InvalidArgument, "received empty field in request: %+v", req)
 		}
