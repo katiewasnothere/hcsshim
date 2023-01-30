@@ -45,6 +45,7 @@ func init() {
 	// Register the pointer to structs because that is what is being stored.
 	gob.Register(&uvm.VSMBShare{})
 	gob.Register(&uvm.SCSIMount{})
+	// TODO katiewasnothere: need to add the new scsi mount type here
 }
 
 func encodeTemplateConfig(templateConfig *TemplateConfig) ([]byte, error) {

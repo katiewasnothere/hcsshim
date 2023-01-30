@@ -122,9 +122,7 @@ func (s *service) createInternal(ctx context.Context, req *task.CreateTaskReques
 		if spec.Windows == nil || len(spec.Windows.LayerFolders) < 2 {
 			return nil, errors.Wrap(errdefs.ErrFailedPrecondition, "no Windows.LayerFolders found in oci spec")
 		}
-	} else if len(req.Rootfs) != 1 {
-		return nil, errors.Wrap(errdefs.ErrFailedPrecondition, "Rootfs does not contain exactly 1 mount for the root file system")
-	} else {
+	} else if len(req.Rootfs) == 1 {
 		m := req.Rootfs[0]
 		if m.Type != "windows-layer" && m.Type != "lcow-layer" {
 			return nil, errors.Wrapf(errdefs.ErrFailedPrecondition, "unsupported mount type '%s'", m.Type)
@@ -155,6 +153,22 @@ func (s *service) createInternal(ctx context.Context, req *task.CreateTaskReques
 		spec.Windows.LayerFolders = append(spec.Windows.LayerFolders, parentLayerPaths...)
 		// Append the scratch
 		spec.Windows.LayerFolders = append(spec.Windows.LayerFolders, m.Source)
+	} else {
+		// more than one rootfs mount, this is for a multi mapped image passed through cri
+		multiMounts := req.Rootfs
+		for _, m := range multiMounts {
+			if m.Type != "lcow-partitioned-layer" {
+				return nil, errors.Wrapf(errdefs.ErrFailedPrecondition, "unsupported mount type '%s'", m.Type)
+			}
+			partition := "0"
+			for _, option := range m.Options {
+				if strings.HasPrefix(option, "partition:") {
+					partition = strings.TrimPrefix(option, "partition:")
+				}
+			}
+			layerInfo := "mmi://" + partition + "/" + m.Source
+			spec.Windows.LayerFolders = append(spec.Windows.LayerFolders, layerInfo)
+		}
 	}
 
 	if req.Terminal && req.Stderr != "" {

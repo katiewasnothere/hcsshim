@@ -345,7 +345,6 @@ func CreateWCOW(ctx context.Context, opts *OptionsWCOW) (_ *UtilityVM, err error
 
 		uvm.scsiLocations[0][0] = newSCSIMount(uvm,
 			doc.VirtualMachine.Devices.Scsi[guestrequest.ScsiControllerGuids[0]].Attachments["0"].Path,
-			"",
 			doc.VirtualMachine.Devices.Scsi[guestrequest.ScsiControllerGuids[0]].Attachments["0"].Type_,
 			"",
 			1,

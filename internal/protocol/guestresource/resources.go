@@ -74,6 +74,7 @@ type LCOWMappedVirtualDisk struct {
 	Encrypted  bool              `json:"Encrypted,omitempty"`
 	Options    []string          `json:"Options,omitempty"`
 	VerityInfo *DeviceVerityInfo `json:"VerityInfo,omitempty"`
+	Partition  uint8             `json:"Partition,omitempty"`
 }
 
 type WCOWMappedVirtualDisk struct {

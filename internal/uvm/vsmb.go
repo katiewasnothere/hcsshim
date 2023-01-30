@@ -42,6 +42,10 @@ type VSMBShare struct {
 	serialVersionID uint32
 }
 
+func (vsmb *VSMBShare) GuestPath() string {
+	return vsmb.guestPath
+}
+
 // Release frees the resources of the corresponding vsmb Mount
 func (vsmb *VSMBShare) Release(ctx context.Context) error {
 	if err := vsmb.vm.RemoveVSMB(ctx, vsmb.HostPath, vsmb.options.ReadOnly); err != nil {
