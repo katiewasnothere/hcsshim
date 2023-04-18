@@ -39,6 +39,7 @@ type mount struct {
 // MountConfig specifies the options to apply for mounting a SCSI device in
 // the guest OS.
 type MountConfig struct {
+	Partition uint64
 	ReadOnly  bool
 	Encrypted bool
 	Verity    *guestresource.DeviceVerityInfo

@@ -200,6 +200,7 @@ func mountRequest(controller, lun uint, path string, config *MountConfig, osType
 			MountPath:  path,
 			Controller: uint8(controller),
 			Lun:        uint8(lun),
+			Partition:  uint64(config.Partition),
 			ReadOnly:   config.ReadOnly,
 			Encrypted:  config.Encrypted,
 			Options:    config.Options,
