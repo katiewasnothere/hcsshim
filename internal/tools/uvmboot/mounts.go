@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Microsoft/hcsshim/internal/uvm"
+	"github.com/Microsoft/hcsshim/internal/uvm/scsi"
 	"github.com/Microsoft/hcsshim/internal/wclayer"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -15,25 +16,26 @@ import (
 
 func mountSCSI(ctx context.Context, c *cli.Context, vm *uvm.UtilityVM) error {
 	for _, m := range parseMounts(c, scsiMountsArgName) {
+		if m.guest != "" {
+			return fmt.Errorf("scsi mount %s: guest path must be empty", m.host)
+		}
 		if err := wclayer.GrantVmAccess(ctx, vm.ID(), m.host); err != nil {
 			return err
 		}
-		if _, err := vm.AddSCSI(
+		scsi, err := vm.SCSIManager.AddVirtualDisk(
 			ctx,
 			m.host,
-			m.guest,
 			!m.writable,
-			false, // encrypted
-			[]string{},
-			uvm.VMAccessTypeIndividual,
-		); err != nil {
+			&scsi.MountConfig{},
+		)
+		if err != nil {
 			return fmt.Errorf("could not mount disk %s: %w", m.host, err)
 		} else {
 			logrus.WithFields(logrus.Fields{
 				"host":     m.host,
-				"guest":    m.guest,
+				"guest":    scsi.GuestPath(),
 				"writable": m.writable,
-			}).Debug("Mounted SCSI disk")
+			}).Info("Mounted SCSI disk")
 		}
 	}
 

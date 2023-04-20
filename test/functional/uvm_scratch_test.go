@@ -50,15 +50,14 @@ func TestScratchCreateLCOW(t *testing.T) {
 	}
 
 	// Make sure it can be added (verifies it has access correctly)
-	var options []string
 	if err := wclayer.GrantVmAccess(context.Background(), targetUVM.ID(), destTwo); err != nil {
 		t.Fatal(err)
 	}
-	scsiMount, err := targetUVM.AddSCSI(context.Background(), destTwo, "", false, false, options)
+	scsiMount, err := targetUVM.SCSIManager.AddVirtualDisk(context.Background(), destTwo, false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if scsiMount.Controller != 0 && scsiMount.LUN != 0 {
+	if scsiMount.Controller() != 0 && scsiMount.LUN() != 0 {
 		t.Fatal(err)
 	}
 	// TODO Could consider giving it a host path and verifying it's contents somehow

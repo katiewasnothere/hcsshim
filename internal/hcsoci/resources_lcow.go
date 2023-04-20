@@ -20,6 +20,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/layers"
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/resources"
+	"github.com/Microsoft/hcsshim/internal/uvm/scsi"
 	"github.com/Microsoft/hcsshim/internal/wclayer"
 )
 
@@ -85,40 +86,41 @@ func allocateLinuxResources(ctx context.Context, coi *createOptionsInternal, r *
 			l := log.G(ctx).WithField("mount", fmt.Sprintf("%+v", mount))
 			if mount.Type == "physical-disk" {
 				l.Debug("hcsshim::allocateLinuxResources Hot-adding SCSI physical disk for OCI mount")
-				uvmPathForShare = fmt.Sprintf(guestpath.LCOWGlobalMountPrefixFmt, coi.HostingSystem.UVMMountCounter())
 				if err := wclayer.GrantVmAccess(ctx, coi.HostingSystem.ID(), hostPath); err != nil {
 					return err
 				}
-				scsiMount, err := coi.HostingSystem.AddSCSIPhysicalDisk(ctx, hostPath, uvmPathForShare, readOnly, mount.Options)
+				scsiMount, err := coi.HostingSystem.SCSIManager.AddPhysicalDisk(
+					ctx,
+					hostPath,
+					readOnly,
+					&scsi.MountConfig{Options: mount.Options},
+				)
 				if err != nil {
 					return errors.Wrapf(err, "adding SCSI physical disk mount %+v", mount)
 				}
 
-				uvmPathForFile = scsiMount.UVMPath
+				uvmPathForFile = scsiMount.GuestPath()
 				r.Add(scsiMount)
 				coi.Spec.Mounts[i].Type = "none"
 			} else if mount.Type == "virtual-disk" {
 				l.Debug("hcsshim::allocateLinuxResources Hot-adding SCSI virtual disk for OCI mount")
-				uvmPathForShare = fmt.Sprintf(guestpath.LCOWGlobalMountPrefixFmt, coi.HostingSystem.UVMMountCounter())
 
 				// if the scsi device is already attached then we take the uvm path that the function below returns
 				// that is where it was previously mounted in UVM
 				if err := wclayer.GrantVmAccess(ctx, coi.HostingSystem.ID(), hostPath); err != nil {
 					return err
 				}
-				scsiMount, err := coi.HostingSystem.AddSCSI(
+				scsiMount, err := coi.HostingSystem.SCSIManager.AddVirtualDisk(
 					ctx,
 					hostPath,
-					uvmPathForShare,
 					readOnly,
-					false,
-					mount.Options,
+					&scsi.MountConfig{Options: mount.Options},
 				)
 				if err != nil {
 					return errors.Wrapf(err, "adding SCSI virtual disk mount %+v", mount)
 				}
 
-				uvmPathForFile = scsiMount.UVMPath
+				uvmPathForFile = scsiMount.GuestPath()
 				r.Add(scsiMount)
 				coi.Spec.Mounts[i].Type = "none"
 			} else if strings.HasPrefix(mount.Source, guestpath.SandboxMountPrefix) {

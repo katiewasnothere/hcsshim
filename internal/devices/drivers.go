@@ -13,6 +13,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/resources"
 	"github.com/Microsoft/hcsshim/internal/uvm"
+	"github.com/Microsoft/hcsshim/internal/uvm/scsi"
 	"github.com/Microsoft/hcsshim/internal/wclayer"
 )
 
@@ -55,21 +56,20 @@ func InstallDrivers(ctx context.Context, vm *uvm.UtilityVM, share string, gpuDri
 	}
 
 	// first mount driver as scsi in standard mount location
-	uvmPathForShare := fmt.Sprintf(guestpath.LCOWGlobalMountPrefixFmt, vm.UVMMountCounter())
 	if err := wclayer.GrantVmAccess(ctx, vm.ID(), share); err != nil {
 		return closer, err
 	}
-	mount, err := vm.AddSCSI(ctx,
+	mount, err := vm.SCSIManager.AddVirtualDisk(
+		ctx,
 		share,
-		uvmPathForShare,
 		true,
-		false,
-		[]string{})
+		&scsi.MountConfig{},
+	)
 	if err != nil {
 		return closer, fmt.Errorf("failed to add SCSI disk to utility VM for path %+v: %s", share, err)
 	}
 	closer = mount
-	uvmPathForShare = mount.UVMPath
+	uvmPathForShare := mount.GuestPath()
 
 	// construct path that the drivers will be remounted as read/write in the UVM
 

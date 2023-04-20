@@ -18,6 +18,7 @@ import (
 
 	"github.com/Microsoft/hcsshim/internal/lcow"
 	"github.com/Microsoft/hcsshim/internal/uvm"
+	"github.com/Microsoft/hcsshim/internal/uvm/scsi"
 	"github.com/Microsoft/hcsshim/osversion"
 	testutilities "github.com/Microsoft/hcsshim/test/internal"
 	"github.com/Microsoft/hcsshim/test/pkg/require"
@@ -54,30 +55,28 @@ func TestSCSIAddRemoveWCOW(t *testing.T) {
 	testSCSIAddRemoveSingle(t, u, `c:\`, "windows", layers)
 }
 
-func testAddSCSI(u *uvm.UtilityVM, disks []string, pathPrefix string, usePath bool, reAdd bool) error {
+func testAddSCSI(u *uvm.UtilityVM, disks []string, attachOnly bool) ([]*scsi.Mount, error) {
+	mounts := make([]*scsi.Mount, 0, len(disks))
 	for i := range disks {
-		uvmPath := ""
-		if usePath {
-			uvmPath = fmt.Sprintf(`%s%d`, pathPrefix, i)
+		var mc *scsi.MountConfig
+		if !attachOnly {
+			mc = &scsi.MountConfig{}
 		}
-		var options []string
 		if err := wclayer.GrantVmAccess(context.Background(), u.ID(), disks[i]); err != nil {
-			return err
+			return nil, err
 		}
-		scsiMount, err := u.AddSCSI(context.Background(), disks[i], uvmPath, false, false, options)
+		scsiMount, err := u.SCSIManager.AddVirtualDisk(context.Background(), disks[i], false, mc)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if reAdd && scsiMount.UVMPath != uvmPath {
-			return fmt.Errorf("expecting existing path to be %s but it is %s", uvmPath, scsiMount.UVMPath)
-		}
+		mounts = append(mounts, scsiMount)
 	}
-	return nil
+	return mounts, nil
 }
 
-func testRemoveAllSCSI(u *uvm.UtilityVM, disks []string) error {
-	for i := range disks {
-		if err := u.RemoveSCSI(context.Background(), disks[i]); err != nil {
+func testRemoveAllSCSI(mounts []*scsi.Mount) error {
+	for _, m := range mounts {
+		if err := m.Release(context.Background()); err != nil {
 			return err
 		}
 	}
@@ -106,30 +105,28 @@ func testSCSIAddRemoveSingle(t *testing.T, u *uvm.UtilityVM, pathPrefix string, 
 	}
 
 	// Add each of the disks to the utility VM. Attach-only, no container path
-	useUvmPathPrefix := false
 	logrus.Debugln("First - adding in attach-only")
-	err := testAddSCSI(u, disks, pathPrefix, useUvmPathPrefix, false)
+	mounts, err := testAddSCSI(u, disks, true)
 	if err != nil {
 		t.Fatalf("failed to add SCSI device: %v", err)
 	}
 
 	// Remove them all
 	logrus.Debugln("Removing them all")
-	err = testRemoveAllSCSI(u, disks)
+	err = testRemoveAllSCSI(mounts)
 	if err != nil {
 		t.Fatalf("failed to remove SCSI disk: %v", err)
 	}
 
 	// Now re-add but providing a container path
-	useUvmPathPrefix = true
 	logrus.Debugln("Next - re-adding with a container path")
-	err = testAddSCSI(u, disks, pathPrefix, useUvmPathPrefix, false)
+	mounts, err = testAddSCSI(u, disks, true)
 	if err != nil {
 		t.Fatalf("failed to add SCSI device: %v", err)
 	}
 
 	logrus.Debugln("Next - Removing them")
-	err = testRemoveAllSCSI(u, disks)
+	err = testRemoveAllSCSI(mounts)
 	if err != nil {
 		t.Fatalf("failed to remove SCSI disk: %v", err)
 	}
@@ -157,9 +154,8 @@ func testSCSIAddRemoveMultiple(t *testing.T, u *uvm.UtilityVM, pathPrefix string
 	}
 
 	// Add each of the disks to the utility VM. Attach-only, no container path
-	useUvmPathPrefix := false
 	logrus.Debugln("First - adding in attach-only")
-	err := testAddSCSI(u, disks, pathPrefix, useUvmPathPrefix, false)
+	mounts1, err := testAddSCSI(u, disks, true)
 	if err != nil {
 		t.Fatalf("failed to add SCSI device: %v", err)
 	}
@@ -167,7 +163,7 @@ func testSCSIAddRemoveMultiple(t *testing.T, u *uvm.UtilityVM, pathPrefix string
 	// Try to re-add.
 	// We only support re-adding the same scsi device for lcow right now
 	logrus.Debugln("Next - trying to re-add")
-	err = testAddSCSI(u, disks, pathPrefix, useUvmPathPrefix, true)
+	mounts2, err := testAddSCSI(u, disks, false)
 	if err != nil {
 		t.Fatalf("failed to re-add SCSI device: %v", err)
 	}
@@ -175,39 +171,38 @@ func testSCSIAddRemoveMultiple(t *testing.T, u *uvm.UtilityVM, pathPrefix string
 	// Remove them all
 	logrus.Debugln("Removing them all")
 	// first removal decrements ref count
-	err = testRemoveAllSCSI(u, disks)
+	err = testRemoveAllSCSI(mounts1)
 	if err != nil {
 		t.Fatalf("failed to remove SCSI disk: %v", err)
 	}
 	// second removal actually removes the device
-	err = testRemoveAllSCSI(u, disks)
+	err = testRemoveAllSCSI(mounts2)
 	if err != nil {
 		t.Fatalf("failed to remove SCSI disk: %v", err)
 	}
 
 	// Now re-add but providing a container path
 	logrus.Debugln("Next - re-adding with a container path")
-	useUvmPathPrefix = true
-	err = testAddSCSI(u, disks, pathPrefix, useUvmPathPrefix, false)
+	mounts1, err = testAddSCSI(u, disks, true)
 	if err != nil {
 		t.Fatalf("failed to add SCSI device: %v", err)
 	}
 
 	// Try to re-add
 	logrus.Debugln("Next - trying to re-add")
-	err = testAddSCSI(u, disks, pathPrefix, useUvmPathPrefix, true)
+	mounts2, err = testAddSCSI(u, disks, false)
 	if err != nil {
 		t.Fatalf("failed to add SCSI device: %v", err)
 	}
 
 	logrus.Debugln("Next - Removing them")
 	// first removal decrements ref count
-	err = testRemoveAllSCSI(u, disks)
+	err = testRemoveAllSCSI(mounts1)
 	if err != nil {
 		t.Fatalf("failed to remove SCSI disk: %v", err)
 	}
 	// second removal actually removes the device
-	err = testRemoveAllSCSI(u, disks)
+	err = testRemoveAllSCSI(mounts2)
 	if err != nil {
 		t.Fatalf("failed to remove SCSI disk: %v", err)
 	}
@@ -284,21 +279,20 @@ func TestParallelScsiOps(t *testing.T) {
 					continue
 				}
 
-				var options []string
 				if err := wclayer.GrantVmAccess(context.Background(), u.ID(), path); err != nil {
 					os.Remove(path)
 					t.Errorf("failed to grant vm access to disk for worker: %d, iteration %d with err: %v", scsiIndex, iteration, err)
 					continue
 				}
-				_, err = u.AddSCSI(context.Background(), path, "", false, false, options)
+				mount, err := u.SCSIManager.AddVirtualDisk(context.Background(), path, false, nil)
 				if err != nil {
 					os.Remove(path)
-					t.Errorf("failed to AddSCSI for worker: %d, iteration: %d with err: %v", scsiIndex, iteration, err)
+					t.Errorf("failed to add SCSI disk for worker: %d, iteration: %d with err: %v", scsiIndex, iteration, err)
 					continue
 				}
-				err = u.RemoveSCSI(context.Background(), path)
+				err = mount.Release(context.Background())
 				if err != nil {
-					t.Errorf("failed to RemoveSCSI for worker: %d, iteration: %d with err: %v", scsiIndex, iteration, err)
+					t.Errorf("failed to remove SCSI disk for worker: %d, iteration: %d with err: %v", scsiIndex, iteration, err)
 					// This worker cant continue because the index is dead. We have to stop
 					break
 				}
@@ -308,15 +302,15 @@ func TestParallelScsiOps(t *testing.T) {
 					t.Errorf("failed to grant vm access to disk for worker: %d, iteration: %d with err: %v", scsiIndex, iteration, err)
 					continue
 				}
-				_, err = u.AddSCSI(context.Background(), path, fmt.Sprintf("/run/gcs/c/0/scsi/%d", iteration), false, false, options)
+				mount, err = u.SCSIManager.AddVirtualDisk(context.Background(), path, false, &scsi.MountConfig{})
 				if err != nil {
 					os.Remove(path)
-					t.Errorf("failed to AddSCSI for worker: %d, iteration: %d with err: %v", scsiIndex, iteration, err)
+					t.Errorf("failed to add SCSI disk for worker: %d, iteration: %d with err: %v", scsiIndex, iteration, err)
 					continue
 				}
-				err = u.RemoveSCSI(context.Background(), path)
+				err = mount.Release(context.Background())
 				if err != nil {
-					t.Errorf("failed to RemoveSCSI for worker: %d, iteration: %d with err: %v", scsiIndex, iteration, err)
+					t.Errorf("failed to remove SCSI disk for worker: %d, iteration: %d with err: %v", scsiIndex, iteration, err)
 					// This worker cant continue because the index is dead. We have to stop
 					break
 				}

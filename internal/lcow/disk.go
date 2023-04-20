@@ -31,11 +31,11 @@ func FormatDisk(ctx context.Context, lcowUVM *uvm.UtilityVM, destPath string) er
 		"dest": destPath,
 	}).Debug("lcow::FormatDisk opts")
 
-	var options []string
+	// Attach without mounting.
 	if err := wclayer.GrantVmAccess(ctx, lcowUVM.ID(), destPath); err != nil {
 		return err
 	}
-	scsi, err := lcowUVM.AddSCSIPhysicalDisk(ctx, destPath, "", false, options) // No destination as not formatted
+	scsi, err := lcowUVM.SCSIManager.AddPhysicalDisk(ctx, destPath, false, nil)
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func FormatDisk(ctx context.Context, lcowUVM *uvm.UtilityVM, destPath string) er
 		"lun":        scsi.LUN,
 	}).Debug("lcow::FormatDisk device attached")
 
-	if err := formatDiskUvm(ctx, lcowUVM, scsi.Controller, scsi.LUN, destPath); err != nil {
+	if err := formatDiskUvm(ctx, lcowUVM, int(scsi.Controller()), int32(scsi.LUN()), destPath); err != nil {
 		return err
 	}
 	log.G(ctx).WithField("dest", destPath).Debug("lcow::FormatDisk complete")

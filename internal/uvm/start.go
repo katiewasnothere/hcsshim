@@ -25,6 +25,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/logfields"
 	"github.com/Microsoft/hcsshim/internal/protocol/guestrequest"
 	"github.com/Microsoft/hcsshim/internal/protocol/guestresource"
+	"github.com/Microsoft/hcsshim/internal/uvm/scsi"
 )
 
 // entropyBytes is the number of bytes of random data to send to a Linux UVM
@@ -280,6 +281,31 @@ func (uvm *UtilityVM) Start(ctx context.Context) (err error) {
 		uvm.guestCaps = properties.GuestConnectionInfo.GuestDefinedCapabilities
 		uvm.protocol = properties.GuestConnectionInfo.ProtocolVersion
 	}
+
+	// Initialize the SCSIManager.
+	var (
+		mounter   scsi.Mounter
+		unplugger scsi.Unplugger
+	)
+	if uvm.gc != nil {
+		mounter = scsi.NewBridgeMounter(uvm.gc, uvm.OS())
+		unplugger = scsi.NewBridgeUnplugger(uvm.gc, uvm.OS())
+	} else {
+		mounter = scsi.NewHCSMounter(uvm.hcsSystem, uvm.OS())
+		unplugger = scsi.NewHCSUnplugger(uvm.hcsSystem, uvm.OS())
+	}
+	guestMountFmt := `c:\mounts\scsi\m%d`
+	if uvm.OS() == "linux" {
+		guestMountFmt = "/run/mounts/scsi/m%d"
+	}
+	uvm.SCSIManager = scsi.NewManager(
+		scsi.NewHCSAttacher(uvm.hcsSystem),
+		mounter,
+		unplugger,
+		int(uvm.scsiControllerCount),
+		64, // LUNs per controller, fixed by Hyper-V.
+		guestMountFmt,
+		uvm.reservedSCSISlots)
 
 	if uvm.confidentialUVMOptions != nil && uvm.OS() == "linux" {
 		copts := []ConfidentialUVMOpt{
