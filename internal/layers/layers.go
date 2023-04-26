@@ -110,11 +110,10 @@ func MountLCOWLayers(ctx context.Context, containerID string, layerFolders []str
 	if err := wclayer.GrantVmAccess(ctx, vm.ID(), hostPath); err != nil {
 		return "", "", nil, err
 	}
-	scsiMount, err := vm.SCSIManager.AddVirtualDisk(
+	scsiMount, err := vm.SCSIManager.Add(
 		ctx,
-		hostPath,
-		false,
-		&scsi.MountConfig{Encrypted: vm.ScratchEncryptionEnabled()},
+		&scsi.AttachConfig{Path: hostPath, Type: scsi.AttachmentTypeVirtualDisk},
+		&scsi.MountConfig{Encrypted: vm.ScratchEncryptionEnabled(), Verity: scsi.ReadVerityInfo(ctx, hostPath)},
 	)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to add SCSI scratch VHD: %s", err)
@@ -342,7 +341,11 @@ func mountWCOWIsolatedLayers(ctx context.Context, containerID string, layerFolde
 	if err := wclayer.GrantVmAccess(ctx, vm.ID(), hostPath); err != nil {
 		return "", nil, err
 	}
-	scsiMount, err := vm.SCSIManager.AddVirtualDisk(ctx, hostPath, false, &scsi.MountConfig{})
+	scsiMount, err := vm.SCSIManager.Add(
+		ctx,
+		&scsi.AttachConfig{Path: hostPath, Type: scsi.AttachmentTypeVirtualDisk},
+		&scsi.MountConfig{Verity: scsi.ReadVerityInfo(ctx, hostPath)},
+	)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to add SCSI scratch VHD: %s", err)
 	}
@@ -394,7 +397,11 @@ func addLCOWLayer(ctx context.Context, vm *uvm.UtilityVM, layerPath string) (uvm
 		}
 	}
 
-	sm, err := vm.SCSIManager.AddVirtualDisk(ctx, layerPath, true, &scsi.MountConfig{Options: []string{"ro"}})
+	sm, err := vm.SCSIManager.Add(
+		ctx,
+		&scsi.AttachConfig{Path: layerPath, ReadOnly: true, Type: scsi.AttachmentTypeVirtualDisk},
+		&scsi.MountConfig{ReadOnly: true, Verity: scsi.ReadVerityInfo(ctx, layerPath), Options: []string{"ro"}},
+	)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to add SCSI layer: %s", err)
 	}

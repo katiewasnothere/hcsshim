@@ -59,11 +59,10 @@ func InstallDrivers(ctx context.Context, vm *uvm.UtilityVM, share string, gpuDri
 	if err := wclayer.GrantVmAccess(ctx, vm.ID(), share); err != nil {
 		return closer, err
 	}
-	mount, err := vm.SCSIManager.AddVirtualDisk(
+	mount, err := vm.SCSIManager.Add(
 		ctx,
-		share,
-		true,
-		&scsi.MountConfig{},
+		&scsi.AttachConfig{Path: share, ReadOnly: true, Type: scsi.AttachmentTypeVirtualDisk},
+		&scsi.MountConfig{ReadOnly: true, Verity: scsi.ReadVerityInfo(ctx, share)},
 	)
 	if err != nil {
 		return closer, fmt.Errorf("failed to add SCSI disk to utility VM for path %+v: %s", share, err)

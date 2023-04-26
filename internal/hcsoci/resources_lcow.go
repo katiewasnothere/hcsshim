@@ -89,11 +89,10 @@ func allocateLinuxResources(ctx context.Context, coi *createOptionsInternal, r *
 				if err := wclayer.GrantVmAccess(ctx, coi.HostingSystem.ID(), hostPath); err != nil {
 					return err
 				}
-				scsiMount, err := coi.HostingSystem.SCSIManager.AddPhysicalDisk(
+				scsiMount, err := coi.HostingSystem.SCSIManager.Add(
 					ctx,
-					hostPath,
-					readOnly,
-					&scsi.MountConfig{Options: mount.Options},
+					&scsi.AttachConfig{Path: hostPath, ReadOnly: readOnly, Type: scsi.AttachmentTypePassThru},
+					&scsi.MountConfig{ReadOnly: readOnly, Verity: scsi.ReadVerityInfo(ctx, hostPath), Options: mount.Options},
 				)
 				if err != nil {
 					return errors.Wrapf(err, "adding SCSI physical disk mount %+v", mount)
@@ -110,11 +109,10 @@ func allocateLinuxResources(ctx context.Context, coi *createOptionsInternal, r *
 				if err := wclayer.GrantVmAccess(ctx, coi.HostingSystem.ID(), hostPath); err != nil {
 					return err
 				}
-				scsiMount, err := coi.HostingSystem.SCSIManager.AddVirtualDisk(
+				scsiMount, err := coi.HostingSystem.SCSIManager.Add(
 					ctx,
-					hostPath,
-					readOnly,
-					&scsi.MountConfig{Options: mount.Options},
+					&scsi.AttachConfig{Path: hostPath, ReadOnly: readOnly, Type: scsi.AttachmentTypeVirtualDisk},
+					&scsi.MountConfig{ReadOnly: readOnly, Verity: scsi.ReadVerityInfo(ctx, hostPath), Options: mount.Options},
 				)
 				if err != nil {
 					return errors.Wrapf(err, "adding SCSI virtual disk mount %+v", mount)

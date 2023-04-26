@@ -60,13 +60,6 @@ func NewManager(
 	return &Manager{am, mm}
 }
 
-// MountConfig specifies the options to apply for mounting a SCSI device in
-// the guest OS.
-type MountConfig struct {
-	Encrypted bool
-	Options   []string
-}
-
 // Mount represents a SCSI device that has been attached to a VM, and potentially
 // also mounted into the guest OS.
 type Mount struct {
@@ -105,123 +98,10 @@ func (m *Mount) Release(ctx context.Context) (err error) {
 	return
 }
 
-// AddVirtualDisk attaches and mounts a VHD on the host to the VM. If the same
-// VHD has already been attached to the VM, the existing attachment will
-// be reused. If the same VHD has already been mounted in the guest OS
-// with the same MountConfig, the same mount will be reused.
-//
-// vmAccess determines what ACL to apply to the physical disk before it is attached.
-// If nil, no ACL is applied.
-//
-// mc determines the settings to apply on the guest OS mount. If
-// it is nil, no guest OS mount is performed.
-func (m *Manager) AddVirtualDisk(
-	ctx context.Context,
-	hostPath string,
-	readOnly bool,
-	mc *MountConfig,
-) (*Mount, error) {
+func (m *Manager) Add(ctx context.Context, attachConfig *AttachConfig, mountConfig *MountConfig) (_ *Mount, err error) {
 	if m == nil {
 		return nil, ErrNotInitialized
 	}
-	var mcInternal *mountConfig
-	if mc != nil {
-		mcInternal = &mountConfig{
-			readOnly:  readOnly,
-			encrypted: mc.Encrypted,
-			options:   mc.Options,
-			verity:    readVerityInfo(ctx, hostPath),
-		}
-	}
-	return m.add(ctx,
-		&attachConfig{
-			path:     hostPath,
-			readOnly: readOnly,
-			typ:      "VirtualDisk",
-		},
-		mcInternal)
-}
-
-// AddPhysicalDisk attaches and mounts a physical disk on the host to the VM.
-// If the same physical disk has already been attached to the VM, the existing
-// attachment will be reused. If the same physical disk has already been mounted
-// in the guest OS with the same MountConfig, the same mount will be reused.
-//
-// vmAccess determines what ACL to apply to the physical disk before it is attached.
-// If nil, no ACL is applied.
-//
-// mc determines the settings to apply on the guest OS mount. If
-// it is nil, no guest OS mount is performed.
-func (m *Manager) AddPhysicalDisk(
-	ctx context.Context,
-	hostPath string,
-	readOnly bool,
-	mc *MountConfig,
-) (*Mount, error) {
-	if m == nil {
-		return nil, ErrNotInitialized
-	}
-	var mcInternal *mountConfig
-	if mc != nil {
-		mcInternal = &mountConfig{
-			readOnly:  readOnly,
-			encrypted: mc.Encrypted,
-			options:   mc.Options,
-			verity:    readVerityInfo(ctx, hostPath),
-		}
-	}
-	return m.add(ctx,
-		&attachConfig{
-			path:     hostPath,
-			readOnly: readOnly,
-			typ:      "PassThru",
-		},
-		mcInternal)
-}
-
-// AddExtensibleVirtualDisk attaches and mounts an extensible virtual disk (EVD) to the VM.
-// EVDs are made available by special drivers on the host which interact with the Hyper-V
-// synthetic SCSI stack.
-// If the same physical disk has already been attached to the VM, the existing
-// attachment will be reused. If the same physical disk has already been mounted
-// in the guest OS with the same MountConfig, the same mount will be reused.
-//
-// hostPath must adhere to the format "evd://<evdType>/<evdMountPath>".
-//
-// mc determines the settings to apply on the guest OS mount. If
-// it is nil, no guest OS mount is performed.
-func (m *Manager) AddExtensibleVirtualDisk(
-	ctx context.Context,
-	hostPath string,
-	readOnly bool,
-	mc *MountConfig,
-) (*Mount, error) {
-	if m == nil {
-		return nil, ErrNotInitialized
-	}
-	evdType, mountPath, err := parseExtensibleVirtualDiskPath(hostPath)
-	if err != nil {
-		return nil, err
-	}
-	var mcInternal *mountConfig
-	if mc != nil {
-		mcInternal = &mountConfig{
-			readOnly:  readOnly,
-			encrypted: mc.Encrypted,
-			options:   mc.Options,
-		}
-	}
-	return m.add(ctx,
-		&attachConfig{
-			path:     mountPath,
-			readOnly: readOnly,
-			typ:      "ExtensibleVirtualDisk",
-			evdType:  evdType,
-		},
-		mcInternal)
-}
-
-func (m *Manager) add(ctx context.Context, attachConfig *attachConfig, mountConfig *mountConfig) (_ *Mount, err error) {
 	controller, lun, err := m.attachManager.attach(ctx, attachConfig)
 	if err != nil {
 		return nil, err
@@ -262,7 +142,7 @@ func (m *Manager) remove(ctx context.Context, controller, lun uint, guestPath st
 	return nil
 }
 
-func readVerityInfo(ctx context.Context, path string) *guestresource.DeviceVerityInfo {
+func ReadVerityInfo(ctx context.Context, path string) *guestresource.DeviceVerityInfo {
 	if v, iErr := verity.ReadVeritySuperBlock(ctx, path); iErr != nil {
 		log.G(ctx).WithError(iErr).WithField("hostPath", path).Debug("unable to read dm-verity information from VHD")
 	} else {
@@ -277,10 +157,10 @@ func readVerityInfo(ctx context.Context, path string) *guestresource.DeviceVerit
 	return nil
 }
 
-// parseExtensibleVirtualDiskPath parses the evd path provided in the config.
+// ParseExtensibleVirtualDiskPath parses the evd path provided in the config.
 // extensible virtual disk path has format "evd://<evdType>/<evd-mount-path>"
 // this function parses that and returns the `evdType` and `evd-mount-path`.
-func parseExtensibleVirtualDiskPath(hostPath string) (evdType, mountPath string, err error) {
+func ParseExtensibleVirtualDiskPath(hostPath string) (evdType, mountPath string, err error) {
 	trimmedPath := strings.TrimPrefix(hostPath, "evd://")
 	separatorIndex := strings.Index(trimmedPath, "/")
 	if separatorIndex <= 0 {

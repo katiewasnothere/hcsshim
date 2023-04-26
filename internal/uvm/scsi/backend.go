@@ -19,14 +19,14 @@ import (
 
 // Attacher provides the low-level operations for attaching a SCSI device to a VM.
 type Attacher interface {
-	attach(ctx context.Context, controller, lun uint, config *attachConfig) error
+	attach(ctx context.Context, controller, lun uint, config *AttachConfig) error
 	detach(ctx context.Context, controller, lun uint) error
 }
 
 // Mounter provides the low-level operations for mounting a SCSI device inside the guest OS.
 type Mounter interface {
-	mount(ctx context.Context, controller, lun uint, path string, config *mountConfig) error
-	unmount(ctx context.Context, controller, lun uint, path string, config *mountConfig) error
+	mount(ctx context.Context, controller, lun uint, path string, config *MountConfig) error
+	unmount(ctx context.Context, controller, lun uint, path string, config *MountConfig) error
 }
 
 // Unplugger provides the low-level operations for cleanly removing a SCSI device inside the guest OS.
@@ -45,14 +45,14 @@ func NewHCSAttacher(system *hcs.System) Attacher {
 	return &hcsAttacher{system}
 }
 
-func (ha *hcsAttacher) attach(ctx context.Context, controller, lun uint, config *attachConfig) error {
+func (ha *hcsAttacher) attach(ctx context.Context, controller, lun uint, config *AttachConfig) error {
 	req := &hcsschema.ModifySettingRequest{
 		RequestType: guestrequest.RequestTypeAdd,
 		Settings: hcsschema.Attachment{
-			Path:                      config.path,
-			Type_:                     config.typ,
-			ReadOnly:                  config.readOnly,
-			ExtensibleVirtualDiskType: config.evdType,
+			Path:                      config.Path,
+			Type_:                     config.Type,
+			ReadOnly:                  config.ReadOnly,
+			ExtensibleVirtualDiskType: config.EVDType,
 		},
 		ResourcePath: fmt.Sprintf(resourcepaths.SCSIResourceFormat, guestrequest.ScsiControllerGuids[controller], lun),
 	}
@@ -81,7 +81,7 @@ func NewBridgeMounter(gc *gcs.GuestConnection, osType string) Mounter {
 	return &bridgeMounter{gc, osType}
 }
 
-func (bm *bridgeMounter) mount(ctx context.Context, controller, lun uint, path string, config *mountConfig) error {
+func (bm *bridgeMounter) mount(ctx context.Context, controller, lun uint, path string, config *MountConfig) error {
 	req, err := mountRequest(controller, lun, path, config, bm.osType)
 	if err != nil {
 		return err
@@ -89,7 +89,7 @@ func (bm *bridgeMounter) mount(ctx context.Context, controller, lun uint, path s
 	return bm.gc.Modify(ctx, req)
 }
 
-func (bm *bridgeMounter) unmount(ctx context.Context, controller, lun uint, path string, config *mountConfig) error {
+func (bm *bridgeMounter) unmount(ctx context.Context, controller, lun uint, path string, config *MountConfig) error {
 	req, err := unmountRequest(controller, lun, path, config, bm.osType)
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func NewHCSMounter(system *hcs.System, osType string) Mounter {
 	return &hcsMounter{system, osType}
 }
 
-func (hm *hcsMounter) mount(ctx context.Context, controller, lun uint, path string, config *mountConfig) error {
+func (hm *hcsMounter) mount(ctx context.Context, controller, lun uint, path string, config *MountConfig) error {
 	req, err := mountRequest(controller, lun, path, config, hm.osType)
 	if err != nil {
 		return err
@@ -119,7 +119,7 @@ func (hm *hcsMounter) mount(ctx context.Context, controller, lun uint, path stri
 	return hm.system.Modify(ctx, &hcsschema.ModifySettingRequest{GuestRequest: req})
 }
 
-func (hm *hcsMounter) unmount(ctx context.Context, controller, lun uint, path string, config *mountConfig) error {
+func (hm *hcsMounter) unmount(ctx context.Context, controller, lun uint, path string, config *MountConfig) error {
 	req, err := unmountRequest(controller, lun, path, config, hm.osType)
 	if err != nil {
 		return err
@@ -177,7 +177,7 @@ func (hu *hcsUnplugger) unplug(ctx context.Context, controller, lun uint) error 
 	return hu.system.Modify(ctx, &hcsschema.ModifySettingRequest{GuestRequest: req})
 }
 
-func mountRequest(controller, lun uint, path string, config *mountConfig, osType string) (guestrequest.ModificationRequest, error) {
+func mountRequest(controller, lun uint, path string, config *MountConfig, osType string) (guestrequest.ModificationRequest, error) {
 	req := guestrequest.ModificationRequest{
 		ResourceType: guestresource.ResourceTypeMappedVirtualDisk,
 		RequestType:  guestrequest.RequestTypeAdd,
@@ -188,7 +188,7 @@ func mountRequest(controller, lun uint, path string, config *mountConfig, osType
 		if controller != 0 {
 			return guestrequest.ModificationRequest{}, errors.New("WCOW only supports SCSI controller 0")
 		}
-		if config.encrypted || config.verity != nil || len(config.options) != 0 {
+		if config.Encrypted || config.Verity != nil || len(config.Options) != 0 {
 			return guestrequest.ModificationRequest{}, errors.New("WCOW does not support encrypted, verity, or guest options on mounts")
 		}
 		req.Settings = guestresource.WCOWMappedVirtualDisk{
@@ -200,10 +200,10 @@ func mountRequest(controller, lun uint, path string, config *mountConfig, osType
 			MountPath:  path,
 			Controller: uint8(controller),
 			Lun:        uint8(lun),
-			ReadOnly:   config.readOnly,
-			Encrypted:  config.encrypted,
-			Options:    config.options,
-			VerityInfo: config.verity,
+			ReadOnly:   config.ReadOnly,
+			Encrypted:  config.Encrypted,
+			Options:    config.Options,
+			VerityInfo: config.Verity,
 		}
 	default:
 		return guestrequest.ModificationRequest{}, fmt.Errorf("unsupported os type: %s", osType)
@@ -211,7 +211,7 @@ func mountRequest(controller, lun uint, path string, config *mountConfig, osType
 	return req, nil
 }
 
-func unmountRequest(controller, lun uint, path string, config *mountConfig, osType string) (guestrequest.ModificationRequest, error) {
+func unmountRequest(controller, lun uint, path string, config *MountConfig, osType string) (guestrequest.ModificationRequest, error) {
 	req := guestrequest.ModificationRequest{
 		ResourceType: guestresource.ResourceTypeMappedVirtualDisk,
 		RequestType:  guestrequest.RequestTypeRemove,
@@ -227,7 +227,7 @@ func unmountRequest(controller, lun uint, path string, config *mountConfig, osTy
 			MountPath:  path,
 			Lun:        uint8(lun),
 			Controller: uint8(controller),
-			VerityInfo: config.verity,
+			VerityInfo: config.Verity,
 		}
 	default:
 		return guestrequest.ModificationRequest{}, fmt.Errorf("unsupported os type: %s", osType)

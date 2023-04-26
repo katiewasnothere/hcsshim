@@ -165,30 +165,31 @@ func setupMounts(ctx context.Context, coi *createOptionsInternal, r *resources.R
 					if err := wclayer.GrantVmAccess(ctx, coi.HostingSystem.ID(), mount.Source); err != nil {
 						return err
 					}
-					scsiMount, err = coi.HostingSystem.SCSIManager.AddPhysicalDisk(
+					scsiMount, err = coi.HostingSystem.SCSIManager.Add(
 						ctx,
-						mount.Source,
-						readOnly,
-						&scsi.MountConfig{Options: mount.Options},
+						&scsi.AttachConfig{Path: mount.Source, ReadOnly: readOnly, Type: scsi.AttachmentTypePassThru},
+						&scsi.MountConfig{ReadOnly: readOnly, Verity: scsi.ReadVerityInfo(ctx, mount.Source), Options: mount.Options},
 					)
 				case "virtual-disk":
 					l.Debug("hcsshim::allocateWindowsResources Hot-adding SCSI virtual disk for OCI mount")
 					if err := wclayer.GrantVmAccess(ctx, coi.HostingSystem.ID(), mount.Source); err != nil {
 						return err
 					}
-					scsiMount, err = coi.HostingSystem.SCSIManager.AddVirtualDisk(
+					scsiMount, err = coi.HostingSystem.SCSIManager.Add(
 						ctx,
-						mount.Source,
-						readOnly,
-						&scsi.MountConfig{Options: mount.Options},
+						&scsi.AttachConfig{Path: mount.Source, ReadOnly: readOnly, Type: scsi.AttachmentTypeVirtualDisk},
+						&scsi.MountConfig{ReadOnly: readOnly, Verity: scsi.ReadVerityInfo(ctx, mount.Source), Options: mount.Options},
 					)
 				case "extensible-virtual-disk":
 					l.Debug("hcsshim::allocateWindowsResource Hot-adding ExtensibleVirtualDisk")
-					scsiMount, err = coi.HostingSystem.SCSIManager.AddExtensibleVirtualDisk(
+					evdType, path, err := scsi.ParseExtensibleVirtualDiskPath(mount.Source)
+					if err != nil {
+						return err
+					}
+					scsiMount, err = coi.HostingSystem.SCSIManager.Add(
 						ctx,
-						mount.Source,
-						readOnly,
-						&scsi.MountConfig{},
+						&scsi.AttachConfig{Path: path, ReadOnly: readOnly, Type: scsi.AttachmentTypeExtensibleVirtualDisk, EVDType: evdType},
+						&scsi.MountConfig{ReadOnly: readOnly},
 					)
 				}
 				if err != nil {

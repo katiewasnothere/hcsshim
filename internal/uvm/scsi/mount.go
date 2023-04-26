@@ -30,24 +30,26 @@ type mount struct {
 	index      int
 	controller uint
 	lun        uint
-	config     *mountConfig
+	config     *MountConfig
 	waitErr    error
 	waitCh     chan struct{}
 	refCount   uint
 }
 
-type mountConfig struct {
-	readOnly  bool
-	encrypted bool
-	verity    *guestresource.DeviceVerityInfo
-	options   []string
+// MountConfig specifies the options to apply for mounting a SCSI device in
+// the guest OS.
+type MountConfig struct {
+	ReadOnly  bool
+	Encrypted bool
+	Verity    *guestresource.DeviceVerityInfo
+	Options   []string
 }
 
-func mountConfigEquals(a, b *mountConfig) bool {
-	return a.readOnly == b.readOnly &&
-		a.encrypted == b.encrypted &&
-		*a.verity == *b.verity &&
-		strSliceEquals(a.options, b.options)
+func mountConfigEquals(a, b *MountConfig) bool {
+	return a.ReadOnly == b.ReadOnly &&
+		a.Encrypted == b.Encrypted &&
+		*a.Verity == *b.Verity &&
+		strSliceEquals(a.Options, b.Options)
 }
 
 func strSliceEquals(a, b []string) bool {
@@ -65,12 +67,12 @@ func strSliceEquals(a, b []string) bool {
 	return true
 }
 
-func (mm *mountManager) mount(ctx context.Context, controller, lun uint, c *mountConfig) (_ string, err error) {
+func (mm *mountManager) mount(ctx context.Context, controller, lun uint, c *MountConfig) (_ string, err error) {
 	// Normalize the mount config for comparison.
 	// Config equality relies on the options slices being compared element-wise. Sort the options
 	// slice first so that two slices with different ordering compare as equal. We assume that
 	// order will never matter for mount options.
-	sort.Strings(c.options)
+	sort.Strings(c.Options)
 
 	mount, existed := mm.trackMount(controller, lun, c)
 	if existed {
@@ -122,7 +124,7 @@ func (mm *mountManager) unmount(ctx context.Context, path string) (bool, error) 
 	return true, nil
 }
 
-func (mm *mountManager) trackMount(controller, lun uint, c *mountConfig) (*mount, bool) {
+func (mm *mountManager) trackMount(controller, lun uint, c *MountConfig) (*mount, bool) {
 	mm.m.Lock()
 	defer mm.m.Unlock()
 
