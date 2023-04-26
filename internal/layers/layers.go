@@ -108,6 +108,9 @@ func MountLCOWLayers(ctx context.Context, containerID string, layerFolders []str
 	log.G(ctx).WithField("hostPath", hostPath).Debug("mounting scratch VHD")
 
 	var options []string
+	if err := wclayer.GrantVmAccess(ctx, vm.ID(), hostPath); err != nil {
+		return "", "", nil, err
+	}
 	scsiMount, err := vm.AddSCSI(
 		ctx,
 		hostPath,
@@ -115,7 +118,6 @@ func MountLCOWLayers(ctx context.Context, containerID string, layerFolders []str
 		false,
 		vm.ScratchEncryptionEnabled(),
 		options,
-		uvm.VMAccessTypeIndividual,
 	)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to add SCSI scratch VHD: %s", err)
@@ -342,6 +344,9 @@ func mountWCOWIsolatedLayers(ctx context.Context, containerID string, layerFolde
 	log.G(ctx).WithField("hostPath", hostPath).Debug("mounting scratch VHD")
 
 	var options []string
+	if err := wclayer.GrantVmAccess(ctx, vm.ID(), hostPath); err != nil {
+		return "", nil, err
+	}
 	scsiMount, err := vm.AddSCSI(
 		ctx,
 		hostPath,
@@ -349,7 +354,6 @@ func mountWCOWIsolatedLayers(ctx context.Context, containerID string, layerFolde
 		false,
 		vm.ScratchEncryptionEnabled(),
 		options,
-		uvm.VMAccessTypeIndividual,
 	)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to add SCSI scratch VHD: %s", err)
@@ -404,7 +408,7 @@ func addLCOWLayer(ctx context.Context, vm *uvm.UtilityVM, layerPath string) (uvm
 
 	options := []string{"ro"}
 	uvmPath = fmt.Sprintf(guestpath.LCOWGlobalMountPrefixFmt, vm.UVMMountCounter())
-	sm, err := vm.AddSCSI(ctx, layerPath, uvmPath, true, false, options, uvm.VMAccessTypeNoop)
+	sm, err := vm.AddSCSI(ctx, layerPath, uvmPath, true, false, options)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to add SCSI layer: %s", err)
 	}

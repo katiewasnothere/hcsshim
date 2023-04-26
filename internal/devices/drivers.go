@@ -13,6 +13,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/resources"
 	"github.com/Microsoft/hcsshim/internal/uvm"
+	"github.com/Microsoft/hcsshim/internal/wclayer"
 )
 
 // InstallDriver mounts a share from the host into the UVM, installs any kernel drivers in the share,
@@ -55,13 +56,15 @@ func InstallDrivers(ctx context.Context, vm *uvm.UtilityVM, share string, gpuDri
 
 	// first mount driver as scsi in standard mount location
 	uvmPathForShare := fmt.Sprintf(guestpath.LCOWGlobalMountPrefixFmt, vm.UVMMountCounter())
+	if err := wclayer.GrantVmAccess(ctx, vm.ID(), share); err != nil {
+		return closer, err
+	}
 	mount, err := vm.AddSCSI(ctx,
 		share,
 		uvmPathForShare,
 		true,
 		false,
-		[]string{},
-		uvm.VMAccessTypeIndividual)
+		[]string{})
 	if err != nil {
 		return closer, fmt.Errorf("failed to add SCSI disk to utility VM for path %+v: %s", share, err)
 	}

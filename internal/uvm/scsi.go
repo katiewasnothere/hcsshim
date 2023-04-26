@@ -15,8 +15,6 @@ import (
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/protocol/guestrequest"
 	"github.com/Microsoft/hcsshim/internal/protocol/guestresource"
-	"github.com/Microsoft/hcsshim/internal/security"
-	"github.com/Microsoft/hcsshim/internal/wclayer"
 )
 
 // VMAccessType is used to determine the various types of access we can
@@ -107,9 +105,6 @@ type addSCSIRequest struct {
 	// guestOptions is a slice that contains optional information to pass to the guest
 	// service.
 	guestOptions []string
-	// indicates what access to grant the vm for the hostpath. Only required for
-	// `VirtualDisk` and `PassThru` disk types.
-	vmAccess VMAccessType
 	// `evdType` indicates the type of the extensible virtual disk if `attachmentType`
 	// is "ExtensibleVirtualDisk" should be empty otherwise.
 	evdType string
@@ -295,7 +290,6 @@ func (uvm *UtilityVM) AddSCSI(
 	readOnly bool,
 	encrypted bool,
 	guestOptions []string,
-	vmAccess VMAccessType,
 ) (*SCSIMount, error) {
 	addReq := &addSCSIRequest{
 		hostPath:       hostPath,
@@ -304,7 +298,6 @@ func (uvm *UtilityVM) AddSCSI(
 		readOnly:       readOnly,
 		encrypted:      encrypted,
 		guestOptions:   guestOptions,
-		vmAccess:       vmAccess,
 	}
 	return uvm.addSCSIActual(ctx, addReq)
 }
@@ -327,7 +320,6 @@ func (uvm *UtilityVM) AddSCSIPhysicalDisk(ctx context.Context, hostPath, uvmPath
 		attachmentType: "PassThru",
 		readOnly:       readOnly,
 		guestOptions:   guestOptions,
-		vmAccess:       VMAccessTypeIndividual,
 	}
 	return uvm.addSCSIActual(ctx, addReq)
 }
@@ -360,7 +352,6 @@ func (uvm *UtilityVM) AddSCSIExtensibleVirtualDisk(ctx context.Context, hostPath
 		attachmentType: "ExtensibleVirtualDisk",
 		readOnly:       readOnly,
 		guestOptions:   []string{},
-		vmAccess:       VMAccessTypeIndividual,
 		evdType:        evdType,
 	}
 	return uvm.addSCSIActual(ctx, addReq)
@@ -382,7 +373,6 @@ func (uvm *UtilityVM) addSCSIActual(ctx context.Context, addReq *addSCSIRequest)
 		addReq.uvmPath,
 		addReq.attachmentType,
 		addReq.evdType,
-		addReq.vmAccess,
 	)
 	if err != nil {
 		return nil, err
@@ -476,15 +466,7 @@ func (uvm *UtilityVM) allocateSCSIMount(
 	uvmPath string,
 	attachmentType string,
 	evdType string,
-	vmAccess VMAccessType,
 ) (*SCSIMount, bool, error) {
-	if attachmentType != "ExtensibleVirtualDisk" {
-		// Ensure the utility VM has access
-		err := grantAccess(ctx, uvm.id, hostPath, vmAccess)
-		if err != nil {
-			return nil, false, errors.Wrapf(err, "failed to grant VM access for SCSI mount")
-		}
-	}
 	// We must hold the lock throughout the lookup (findSCSIAttachment) until
 	// after the possible allocation (allocateSCSISlot) has been completed to ensure
 	// there isn't a race condition for it being attached by another thread between
@@ -524,18 +506,6 @@ func (uvm *UtilityVM) allocateSCSIMount(
 // Returns true if the scratch disks should be encrypted, false otherwise.
 func (uvm *UtilityVM) ScratchEncryptionEnabled() bool {
 	return uvm.encryptScratch
-}
-
-// grantAccess helper function to grant access to a file for the vm or vm group
-func grantAccess(ctx context.Context, uvmID string, hostPath string, vmAccess VMAccessType) error {
-	switch vmAccess {
-	case VMAccessTypeGroup:
-		log.G(ctx).WithField("path", hostPath).Debug("granting vm group access")
-		return security.GrantVmGroupAccess(hostPath)
-	case VMAccessTypeIndividual:
-		return wclayer.GrantVmAccess(ctx, uvmID, hostPath)
-	}
-	return nil
 }
 
 // ParseExtensibleVirtualDiskPath parses the evd path provided in the config.

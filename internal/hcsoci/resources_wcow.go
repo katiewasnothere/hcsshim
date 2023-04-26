@@ -163,6 +163,9 @@ func setupMounts(ctx context.Context, coi *createOptionsInternal, r *resources.R
 				switch mount.Type {
 				case "physical-disk":
 					l.Debug("hcsshim::allocateWindowsResources Hot-adding SCSI physical disk for OCI mount")
+					if err := wclayer.GrantVmAccess(ctx, coi.HostingSystem.ID(), mount.Source); err != nil {
+						return err
+					}
 					scsiMount, err = coi.HostingSystem.AddSCSIPhysicalDisk(
 						ctx,
 						mount.Source,
@@ -172,6 +175,9 @@ func setupMounts(ctx context.Context, coi *createOptionsInternal, r *resources.R
 					)
 				case "virtual-disk":
 					l.Debug("hcsshim::allocateWindowsResources Hot-adding SCSI virtual disk for OCI mount")
+					if err := wclayer.GrantVmAccess(ctx, coi.HostingSystem.ID(), mount.Source); err != nil {
+						return err
+					}
 					scsiMount, err = coi.HostingSystem.AddSCSI(
 						ctx,
 						mount.Source,
@@ -179,7 +185,6 @@ func setupMounts(ctx context.Context, coi *createOptionsInternal, r *resources.R
 						readOnly,
 						false,
 						mount.Options,
-						uvm.VMAccessTypeIndividual,
 					)
 				case "extensible-virtual-disk":
 					l.Debug("hcsshim::allocateWindowsResource Hot-adding ExtensibleVirtualDisk")

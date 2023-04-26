@@ -8,12 +8,16 @@ import (
 	"strings"
 
 	"github.com/Microsoft/hcsshim/internal/uvm"
+	"github.com/Microsoft/hcsshim/internal/wclayer"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
 func mountSCSI(ctx context.Context, c *cli.Context, vm *uvm.UtilityVM) error {
 	for _, m := range parseMounts(c, scsiMountsArgName) {
+		if err := wclayer.GrantVmAccess(ctx, vm.ID(), m.host); err != nil {
+			return err
+		}
 		if _, err := vm.AddSCSI(
 			ctx,
 			m.host,

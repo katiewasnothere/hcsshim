@@ -9,6 +9,7 @@ import (
 
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/uvm"
+	"github.com/Microsoft/hcsshim/internal/wclayer"
 	"github.com/sirupsen/logrus"
 )
 
@@ -31,6 +32,9 @@ func FormatDisk(ctx context.Context, lcowUVM *uvm.UtilityVM, destPath string) er
 	}).Debug("lcow::FormatDisk opts")
 
 	var options []string
+	if err := wclayer.GrantVmAccess(ctx, lcowUVM.ID(), destPath); err != nil {
+		return err
+	}
 	scsi, err := lcowUVM.AddSCSIPhysicalDisk(ctx, destPath, "", false, options) // No destination as not formatted
 	if err != nil {
 		return err

@@ -20,7 +20,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/layers"
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/resources"
-	"github.com/Microsoft/hcsshim/internal/uvm"
+	"github.com/Microsoft/hcsshim/internal/wclayer"
 )
 
 func allocateLinuxResources(ctx context.Context, coi *createOptionsInternal, r *resources.Resources, isSandbox bool) error {
@@ -86,6 +86,9 @@ func allocateLinuxResources(ctx context.Context, coi *createOptionsInternal, r *
 			if mount.Type == "physical-disk" {
 				l.Debug("hcsshim::allocateLinuxResources Hot-adding SCSI physical disk for OCI mount")
 				uvmPathForShare = fmt.Sprintf(guestpath.LCOWGlobalMountPrefixFmt, coi.HostingSystem.UVMMountCounter())
+				if err := wclayer.GrantVmAccess(ctx, coi.HostingSystem.ID(), hostPath); err != nil {
+					return err
+				}
 				scsiMount, err := coi.HostingSystem.AddSCSIPhysicalDisk(ctx, hostPath, uvmPathForShare, readOnly, mount.Options)
 				if err != nil {
 					return errors.Wrapf(err, "adding SCSI physical disk mount %+v", mount)
@@ -100,6 +103,9 @@ func allocateLinuxResources(ctx context.Context, coi *createOptionsInternal, r *
 
 				// if the scsi device is already attached then we take the uvm path that the function below returns
 				// that is where it was previously mounted in UVM
+				if err := wclayer.GrantVmAccess(ctx, coi.HostingSystem.ID(), hostPath); err != nil {
+					return err
+				}
 				scsiMount, err := coi.HostingSystem.AddSCSI(
 					ctx,
 					hostPath,
@@ -107,7 +113,6 @@ func allocateLinuxResources(ctx context.Context, coi *createOptionsInternal, r *
 					readOnly,
 					false,
 					mount.Options,
-					uvm.VMAccessTypeIndividual,
 				)
 				if err != nil {
 					return errors.Wrapf(err, "adding SCSI virtual disk mount %+v", mount)

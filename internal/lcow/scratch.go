@@ -16,6 +16,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/timeout"
 	"github.com/Microsoft/hcsshim/internal/uvm"
+	"github.com/Microsoft/hcsshim/internal/wclayer"
 	"github.com/sirupsen/logrus"
 )
 
@@ -69,6 +70,9 @@ func CreateScratch(ctx context.Context, lcowUVM *uvm.UtilityVM, destFile string,
 	}
 
 	var options []string
+	if err := wclayer.GrantVmAccess(ctx, lcowUVM.ID(), destFile); err != nil {
+		return err
+	}
 	scsi, err := lcowUVM.AddSCSI(
 		ctx,
 		destFile,
@@ -76,7 +80,6 @@ func CreateScratch(ctx context.Context, lcowUVM *uvm.UtilityVM, destFile string,
 		false,
 		lcowUVM.ScratchEncryptionEnabled(),
 		options,
-		uvm.VMAccessTypeIndividual,
 	)
 	if err != nil {
 		return err
