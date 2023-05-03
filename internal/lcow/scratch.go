@@ -16,6 +16,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/timeout"
 	"github.com/Microsoft/hcsshim/internal/uvm"
+	"github.com/Microsoft/hcsshim/internal/uvm/scsi"
 	"github.com/Microsoft/hcsshim/internal/wclayer"
 	"github.com/sirupsen/logrus"
 )
@@ -72,10 +73,14 @@ func CreateScratch(ctx context.Context, lcowUVM *uvm.UtilityVM, destFile string,
 	if err := wclayer.GrantVmAccess(ctx, lcowUVM.ID(), destFile); err != nil {
 		return err
 	}
-	scsi, err := lcowUVM.SCSIManager.AddVirtualDisk(
+	attachConfig := &scsi.AttachConfig{
+		Path:     destFile,
+		ReadOnly: false,
+		Type:     scsi.AttachmentTypeVirtualDisk,
+	}
+	scsi, err := lcowUVM.SCSIManager.Add(
 		ctx,
-		destFile,
-		false,
+		attachConfig,
 		nil, // Attach without mounting.
 	)
 	if err != nil {

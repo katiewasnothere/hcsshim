@@ -3,7 +3,10 @@ package scsi
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
+
+	"github.com/Microsoft/hcsshim/internal/log"
 )
 
 type attachManager struct {
@@ -84,6 +87,7 @@ func (am *attachManager) attach(ctx context.Context, c *AttachConfig) (controlle
 		close(att.waitCh)
 	}()
 
+	log.G(ctx).WithField("request", att).Info("scsi attach request in manager")
 	if err := am.attacher.attach(ctx, att.controller, att.lun, att.config); err != nil {
 		return 0, 0, fmt.Errorf("attach %s/%s at controller %d lun %d: %w", att.config.Type, att.config.Path, att.controller, att.lun, err)
 	}
@@ -132,7 +136,7 @@ func (am *attachManager) trackAttachment(c *AttachConfig) (*attachment, bool, er
 					freeController = controller
 					freeLUN = lun
 				}
-			} else if c == attachment.config {
+			} else if reflect.DeepEqual(c, attachment.config) {
 				attachment.refCount++
 				return attachment, true, nil
 			}

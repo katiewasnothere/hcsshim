@@ -9,6 +9,7 @@ import (
 
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/uvm"
+	"github.com/Microsoft/hcsshim/internal/uvm/scsi"
 	"github.com/Microsoft/hcsshim/internal/wclayer"
 	"github.com/sirupsen/logrus"
 )
@@ -35,7 +36,12 @@ func FormatDisk(ctx context.Context, lcowUVM *uvm.UtilityVM, destPath string) er
 	if err := wclayer.GrantVmAccess(ctx, lcowUVM.ID(), destPath); err != nil {
 		return err
 	}
-	scsi, err := lcowUVM.SCSIManager.AddPhysicalDisk(ctx, destPath, false, nil)
+	attachConfig := &scsi.AttachConfig{
+		Path:     destPath,
+		ReadOnly: false,
+		Type:     scsi.AttachmentTypePassThru,
+	}
+	scsi, err := lcowUVM.SCSIManager.Add(ctx, attachConfig, nil)
 	if err != nil {
 		return err
 	}

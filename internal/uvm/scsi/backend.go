@@ -50,13 +50,16 @@ func (ha *hcsAttacher) attach(ctx context.Context, controller, lun uint, config 
 		RequestType: guestrequest.RequestTypeAdd,
 		Settings: hcsschema.Attachment{
 			Path:                      config.Path,
-			Type_:                     config.Type,
+			Type_:                     string(config.Type),
 			ReadOnly:                  config.ReadOnly,
 			ExtensibleVirtualDiskType: config.EVDType,
 		},
 		ResourcePath: fmt.Sprintf(resourcepaths.SCSIResourceFormat, guestrequest.ScsiControllerGuids[controller], lun),
 	}
-	return ha.system.Modify(ctx, req)
+	if err := ha.system.Modify(ctx, req); err != nil {
+		return fmt.Errorf("failed attach request %v with: %w", req, err)
+	}
+	return nil
 }
 
 func (ha *hcsAttacher) detach(ctx context.Context, controller, lun uint) error {
@@ -200,7 +203,7 @@ func mountRequest(controller, lun uint, path string, config *MountConfig, osType
 			MountPath:  path,
 			Controller: uint8(controller),
 			Lun:        uint8(lun),
-			Partition:  uint64(config.Partition),
+			Partition:  config.Partition,
 			ReadOnly:   config.ReadOnly,
 			Encrypted:  config.Encrypted,
 			Options:    config.Options,
@@ -229,6 +232,7 @@ func unmountRequest(controller, lun uint, path string, config *MountConfig, osTy
 			Lun:        uint8(lun),
 			Controller: uint8(controller),
 			VerityInfo: config.Verity,
+			Partition:  config.Partition,
 		}
 	default:
 		return guestrequest.ModificationRequest{}, fmt.Errorf("unsupported os type: %s", osType)

@@ -46,10 +46,21 @@ type MountConfig struct {
 	Options   []string
 }
 
+func verityEquals(a, b *guestresource.DeviceVerityInfo) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return (*a == *b)
+}
+
 func mountConfigEquals(a, b *MountConfig) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
 	return a.ReadOnly == b.ReadOnly &&
+		a.Partition == b.Partition &&
 		a.Encrypted == b.Encrypted &&
-		*a.Verity == *b.Verity &&
+		verityEquals(a.Verity, b.Verity) &&
 		strSliceEquals(a.Options, b.Options)
 }
 
