@@ -35,6 +35,31 @@ type nodeNetSvcConn struct {
 	grpcConn *grpc.ClientConn
 }
 
+func newNodeNetSvcConn(ctx context.Context, nodeNetSvcAddr string, timeout uint32) (*nodeNetSvcConn, error) {
+	dialCtx := ctx
+	opts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithStatsHandler(&ocgrpc.ClientHandler{})}
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		dialCtx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
+		defer cancel()
+		opts = append(opts, grpc.WithBlock())
+	}
+	client, err := grpc.DialContext(dialCtx, nodeNetSvcAddr, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to NodeNetworkService at address %s", nodeNetSvcAddr)
+	}
+
+	log.G(ctx).Infof("Successfully connected to NodeNetworkService at address %s", nodeNetSvcAddr)
+
+	netSvcClient := nodenetsvc.NewNodeNetworkServiceClient(client)
+	nodeNetSvcClient := &nodeNetSvcConn{
+		addr:     nodeNetSvcAddr,
+		client:   netSvcClient,
+		grpcConn: client,
+	}
+	return nodeNetSvcClient, nil
+}
+
 type computeAgentClient struct {
 	raw *ttrpc.Client
 	computeagent.ComputeAgentService
@@ -192,27 +217,12 @@ func run(clicontext *cli.Context) error {
 	if conf.NodeNetSvcAddr != "" {
 		log.G(ctx).Infof("Connecting to NodeNetworkService at address %s", conf.NodeNetSvcAddr)
 
-		dialCtx := ctx
-		opts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithStatsHandler(&ocgrpc.ClientHandler{})}
-		if conf.Timeout > 0 {
-			var cancel context.CancelFunc
-			dialCtx, cancel = context.WithTimeout(ctx, time.Duration(conf.Timeout)*time.Second)
-			defer cancel()
-			opts = append(opts, grpc.WithBlock())
-		}
-		client, err := grpc.DialContext(dialCtx, conf.NodeNetSvcAddr, opts...)
+		nodeNetSvcClient, err = newNodeNetSvcConn(ctx, conf.NodeNetSvcAddr, conf.Timeout)
 		if err != nil {
-			return fmt.Errorf("failed to connect to NodeNetworkService at address %s", conf.NodeNetSvcAddr)
+			return err
 		}
 
 		log.G(ctx).Infof("Successfully connected to NodeNetworkService at address %s", conf.NodeNetSvcAddr)
-
-		netSvcClient := nodenetsvc.NewNodeNetworkServiceClient(client)
-		nodeNetSvcClient = &nodeNetSvcConn{
-			addr:     conf.NodeNetSvcAddr,
-			client:   netSvcClient,
-			grpcConn: client,
-		}
 	}
 
 	// setup ncproxy databases
