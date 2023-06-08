@@ -97,6 +97,7 @@ and 'node network' services.`
 	}
 	app.Commands = []cli.Command{
 		configCommand,
+		versionCommand,
 	}
 	app.Action = func(ctx *cli.Context) error {
 		return run(ctx)
