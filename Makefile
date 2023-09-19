@@ -77,14 +77,14 @@ out/delta-dev.tar.gz: out/delta.tar.gz bin/internal/tools/snp-report
 out/delta.tar.gz: bin/init bin/vsockexec bin/cmd/gcs bin/cmd/gcstools bin/cmd/hooks/wait-paths Makefile
 	@mkdir -p out
 	rm -rf rootfs
-	mkdir -p rootfs/bin/
+	mkdir -p rootfs/usr/bin
 	mkdir -p rootfs/info/
 	cp bin/init rootfs/
-	cp bin/vsockexec rootfs/bin/
-	cp bin/cmd/gcs rootfs/bin/
-	cp bin/cmd/gcstools rootfs/bin/
-	cp bin/cmd/hooks/wait-paths rootfs/bin/
-	for tool in $(GCS_TOOLS); do ln -s gcstools rootfs/bin/$$tool; done
+	cp bin/vsockexec rootfs/usr/bin/
+	cp bin/cmd/gcs rootfs/usr/bin/
+	cp bin/cmd/gcstools rootfs/usr/bin/
+	cp bin/cmd/hooks/wait-paths rootfs/usr/bin/
+	for tool in $(GCS_TOOLS); do ln -s gcstools rootfs/usr/bin/$$tool; done
 	git -C $(SRCROOT) rev-parse HEAD > rootfs/info/gcs.commit && \
 	git -C $(SRCROOT) rev-parse --abbrev-ref HEAD > rootfs/info/gcs.branch && \
 	date --iso-8601=minute --utc > rootfs/info/tar.date
