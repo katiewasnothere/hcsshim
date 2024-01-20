@@ -14,10 +14,12 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include "../vsockexec/vsock.h"
 
+#define DEBUG 1
 
 #ifdef DEBUG
 #ifdef USE_TCP
@@ -57,6 +59,8 @@ static int opentcp(unsigned short port)
 #define RNDADDENTROPY _IOW( 'R', 0x03, int [2] )
 
 #define DEFAULT_PATH_ENV "PATH=/sbin:/usr/sbin:/bin:/usr/bin"
+
+#define __NR_finit_module 313
 
 const char *const default_envp[] = {
     DEFAULT_PATH_ENV,
@@ -403,6 +407,97 @@ int reap_until(pid_t until_pid) {
     }
 }
 
+void load_module(const char *module_path) {
+    int fd = open(module_path, O_RDONLY);
+    if (fd < 0) {
+        die2("failed to open module", module_path);
+    }
+
+    /* use finit_module syscall to load the module:
+    syscall function takes as its first argument the number of the system call
+    user want to make, and then the arguments to the system call. The system call 
+    number for finit_module is __NR_finit_module.*/
+    if (syscall(__NR_finit_module, fd, "", 0) != 0) {
+        // handle error
+        close(fd);
+        die2("failed to load module", module_path);
+    }
+
+    close(fd);
+}
+
+// helper function to combine three strings 
+char *concat(const char *str1, const char *str2, const char *str3) {
+    size_t len1 = strlen(str1);
+    size_t len2 = strlen(str2);
+    size_t len3 = strlen(str3);
+
+    char *combine = malloc(len1 + len2 + len3 + 1); 
+    if (!combine) {
+        return combine;
+    }
+    memcpy(combine, str1, len1);
+    memcpy(combine + len1, str2, len2); 
+    memcpy(combine + len1 + len2, str3, len3 + 1);
+    return combine;
+}
+
+void load_all_modules() {
+    char base_modules_dir[] = "/lib/modules";
+    char modules_order_filename[] = "modules.order";
+    char path_separator[] = "/";
+
+    // get information on the running kernel 
+    struct utsname uname_data;
+    int ret = uname(&uname_data);
+    if (ret != 0) {
+        die("failed to get kernel information");
+    }
+    
+    // create the absolute path of the modules directory this looks 
+    // like /lib/modules/<uname.release>
+    char *modules_dir = concat(base_modules_dir, path_separator, uname_data.release);
+
+    // create the absolute path of the modules order file
+    char *modules_order_path = concat(modules_dir, path_separator, modules_order_filename);
+
+    // read the modules order path which is used to read the order to insert modules in 
+    FILE *f = fopen(modules_order_path, "r");
+    if (f == NULL) {
+        die2("fopen", modules_order_path);
+    }
+
+    char *line = NULL;
+    char *abspath = NULL; 
+    size_t len = 0;
+    ssize_t read;
+    
+    while ((read = getline(&line, &len, f)) != -1) {
+        // remove trailing newline character 
+        line[strcspn(line, "\n")] = 0;
+
+        // create the absolute path of the kernel module (.ko) file
+        abspath = concat(modules_dir, path_separator, line);
+        load_module(abspath);
+    }
+
+    fclose(f);
+
+    // free allocated memory
+    if (modules_dir) {
+        free(modules_dir);
+    }
+    if (modules_order_path) {
+        free(modules_order_path);
+    }
+    if (line) {
+        free(line);
+    }
+    if (abspath) {
+        free(abspath);
+    }
+}
+
 #ifdef DEBUG
 int debug_main(int argc, char **argv) {
     unsigned int ports[3] = {2056, 2056, 2056};
@@ -532,6 +627,8 @@ int main(int argc, char **argv) {
     if (entropy_port != 0) {
         init_entropy(entropy_port);
     }
+
+    load_all_modules();
 
     pid_t pid = launch(child_argc, child_argv);
     if (debug_shell != NULL) {
