@@ -638,11 +638,27 @@ func makeLCOWDoc(ctx context.Context, opts *OptionsLCOW, uvm *UtilityVM) (_ *hcs
 						// Allow administrators and SYSTEM to bind to vsock sockets
 						// so that we can create a GCS log socket.
 						DefaultBindSecurityDescriptor: "D:P(A;;FA;;;SY)(A;;FA;;;BA)",
+						ServiceTable:                  make(map[string]hcsschema.HvSocketServiceConfig),
 					},
 				},
 				Plan9: &hcsschema.Plan9{},
 			},
 		},
+	}
+
+	// Set permissions for the VSock ports:
+	//		entropyVsockPort - 1 is the entropy port,
+	//		linuxLogVsockPort - 109 used by vsockexec to log stdout/stderr logging,
+	//		0x40000000 + 1 (LinuxGcsVsockPort + 1) is the bridge (see guestconnectiuon.go)
+	hvSockets := []uint32{}
+	hvSockets = append(hvSockets, opts.ExtraVSockPorts...)
+	for _, whichSocket := range hvSockets {
+		key := fmt.Sprintf("%08x-facb-11e6-bd58-64006a7986d3", whichSocket) // format of a linux hvsock GUID is port#-facb-11e6-bd58-64006a7986d3
+		doc.VirtualMachine.Devices.HvSocket.HvSocketConfig.ServiceTable[key] = hcsschema.HvSocketServiceConfig{
+			AllowWildcardBinds:        true,
+			BindSecurityDescriptor:    "D:P(A;;FA;;;WD)",
+			ConnectSecurityDescriptor: "D:P(A;;FA;;;SY)(A;;FA;;;BA)",
+		}
 	}
 
 	// Handle StorageQoS if set

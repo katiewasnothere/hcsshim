@@ -325,6 +325,8 @@ func main() {
 		bridgeOut = bridgeCon
 	}
 
+	// TODO katiewasnothere: modprobe all drivers that are present???
+
 	// Setup the UVM cgroups to protect against a workload taking all available
 	// memory and causing the GCS to malfunction we create two cgroups: gcs,
 	// containers.

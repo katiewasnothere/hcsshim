@@ -7,6 +7,9 @@ CGO_ENABLED:=0
 GOMODVENDOR:=
 
 CFLAGS:=-O2 -Wall
+# TODO: katiewasnothere 
+# -static prevents linking with shared libraries 
+# -s removes all symbol table and relocation info from the exe 
 LDFLAGS:=-static -s # strip C binaries
 
 GO_FLAGS_EXTRA:=

@@ -32,7 +32,7 @@ func addNvidiaDeviceHook(ctx context.Context, spec *oci.Spec, ociBundlePath stri
 		return errors.Wrapf(err, "failed to find %s for container device support", genericHookBinary)
 	}
 
-	toolDebugPath := filepath.Join(ociBundlePath, nvidiaDebugFilePath)
+	toolDebugPath := filepath.Join("/tmp", nvidiaDebugFilePath)
 	debugOption := fmt.Sprintf("--debug=%s", toolDebugPath)
 	args := []string{
 		genericHookPath,
@@ -41,7 +41,7 @@ func addNvidiaDeviceHook(ctx context.Context, spec *oci.Spec, ociBundlePath stri
 		"--load-kmods",
 		"--no-pivot",
 		"configure",
-		"--ldconfig=@/sbin/ldconfig",
+		// "--ldconfig=@/sbin/ldconfig",
 	}
 	if capabilities, ok := spec.Annotations[annotations.ContainerGPUCapabilities]; ok {
 		caps := strings.Split(capabilities, ",")
