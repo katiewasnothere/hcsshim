@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include "../vsockexec/vsock.h"
@@ -439,7 +440,7 @@ void load_module(struct kmod_ctx *ctx, char *module_path) {
 
     warn("inserted module");
     kmod_module_unref(mod); 
-    warn("cleaned up the module ")
+    warn("cleaned up the module ");
 }   
 
 void load_all_modules() {
