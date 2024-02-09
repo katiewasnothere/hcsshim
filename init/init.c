@@ -429,13 +429,16 @@ void load_module(struct kmod_ctx *ctx, char *module_path) {
     warn2("inside load_module", module_path);
     err = kmod_module_new_from_path(ctx, module_path, &mod);
     if (err < 0) {
-        // return 
+        warn("failed to get new module from path");
+        return;
     }
 
     warn("about to insert module");
     err = kmod_module_probe_insert_module(mod, 0, NULL, NULL, NULL, NULL); 
     if (err < 0) {
         // print the error 
+        warn("failed to load module");
+        return;
     }
 
     warn("inserted module");
@@ -488,7 +491,7 @@ void load_all_modules() {
         // create the absolute path of the kernel module (.ko) file
         abspath = concat(modules_dir, path_separator, line);
 
-        warn("calling load module");
+        // warn2("calling load module", abspath);
         load_module(ctx, abspath);
     }
 
@@ -609,31 +612,37 @@ int main(int argc, char **argv) {
     sigfillset(&set);
 
     #ifdef DEBUG
+    warn("sigfillset\n");
     printf("sigfillset\n");
     #endif
     sigprocmask(SIG_BLOCK, &set, 0);
 
     #ifdef DEBUG
+    warn("init_rlimit\n");
     printf("init_rlimit\n");
     #endif
     init_rlimit();
 
     #ifdef DEBUG
+    warn("init_dev\n");
     printf("init_dev\n");
     #endif
     init_dev();
 
     #ifdef DEBUG
+    warn("init_fs\n");
     printf("init_fs\n");
     #endif
     init_fs(ops, sizeof(ops) / sizeof(ops[0]));
 
     #ifdef DEBUG
+    warn("init_cgroups\n");
     printf("init_cgroups\n");
     #endif
     init_cgroups();
 
     #ifdef DEBUG
+    warn("init_network\n");
     printf("init_network\n");
     #endif
     init_network("lo", AF_INET);
@@ -641,6 +650,8 @@ int main(int argc, char **argv) {
     if (entropy_port != 0) {
         init_entropy(entropy_port);
     }
+
+    load_all_modules();
 
     pid_t pid = launch(child_argc, child_argv);
     if (debug_shell != NULL) {
