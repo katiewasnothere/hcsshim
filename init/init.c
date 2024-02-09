@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
+#include <ftw.h>
 #include <getopt.h>
 #include <libkmod.h>
 #include <net/if.h>
@@ -60,15 +61,20 @@ static int opentcp(unsigned short port)
 #define RNDADDENTROPY _IOW( 'R', 0x03, int [2] )
 
 #define DEFAULT_PATH_ENV "PATH=/sbin:/usr/sbin:/bin:/usr/bin"
+#define OPEN_FDS 15
 
 const char *const default_envp[] = {
     DEFAULT_PATH_ENV,
     NULL,
 };
 
+// global kmod ctx so we can access it in the file tree traversal 
+struct kmod_ctx *ctx;
+
 // When nothing is passed, default to the LCOWv1 behavior.
 const char *const default_argv[] = { "/bin/gcs", "-loglevel", "debug", "-logfile=/run/gcs/gcs.log" };
 const char *const default_shell = "/bin/sh";
+const char *const lib_modules = "/lib/modules";
 
 struct Mount {
     const char *source, *target, *type;
@@ -406,113 +412,100 @@ int reap_until(pid_t until_pid) {
     }
 }
 
-// helper function to combine three strings 
-char *concat(const char *str1, const char *str2, const char *str3) {
-    size_t len1 = strlen(str1);
-    size_t len2 = strlen(str2);
-    size_t len3 = strlen(str3);
-
-    char *combine = malloc(len1 + len2 + len3 + 1); 
-    if (!combine) {
-        return combine;
-    }
-    memcpy(combine, str1, len1);
-    memcpy(combine + len1, str2, len2); 
-    memcpy(combine + len1 + len2, str3, len3 + 1);
-    return combine;
-}
-
-void load_module(struct kmod_ctx *ctx, char *module_path) {
+// load_module gets the module from the absolute path to the module and then 
+// inserts into the kernel. 
+int load_module(struct kmod_ctx *ctx, const char *module_path) {
     struct kmod_module *mod = NULL; 
     int err;
 
-    warn2("inside load_module", module_path);
+    #ifdef DEBUG
+    printf("loading module: %s\n", module_path);
+    #endif
+
     err = kmod_module_new_from_path(ctx, module_path, &mod);
     if (err < 0) {
-        warn("failed to get new module from path");
-        return;
+        kmod_module_unref(mod); 
+        return err; 
     }
 
-    warn("about to insert module");
     err = kmod_module_probe_insert_module(mod, 0, NULL, NULL, NULL, NULL); 
     if (err < 0) {
-        // print the error 
-        warn("failed to load module");
-        return;
+        kmod_module_unref(mod); 
+        return err;
     }
 
-    warn("inserted module");
     kmod_module_unref(mod); 
-    warn("cleaned up the module ");
-}   
+    return 0;
+}
 
+// parse_tree_entry is called by ftw for each directory and file in the file tree.
+// If this entry is a file and has a .ko file extension, attempt to load into kernel.
+int parse_tree_entry(const char *fpath, const struct stat *sb, int typeflag) {
+    int result;
+    const char *ext; 
+
+    if (typeflag != FTW_F) {
+        // do nothing if this isn't a file 
+        return 0; 
+    }
+        
+    ext = strrchr(fpath, '.');
+    if (!ext || ext == fpath) {
+        // no file extension found in the filepath
+        return 0; 
+    }
+
+    if ((result = strcmp(ext, ".ko")) != 0) {
+        // file does not have .ko extension so it is not a kernel module
+        return 0; 
+    }
+
+    // print warning if we fail to load the module, but don't fail fn so 
+    // we keep trying to load the rest of the modules. 
+    result = load_module(ctx, fpath);
+    if (result != 0) {
+        warn2("failed to load module", fpath);
+    }
+    return 0;
+}
+
+// load_all_modules finds the modules in the image and loads them using kmod, 
+// which accounts for ordering requirements. 
 void load_all_modules() {
-    char base_modules_dir[] = "/lib/modules";
-    char path_separator[] = "/";
-    char modules_order_filename[] = "modules.order";
-    struct kmod_ctx *ctx;
-
-    char *line = NULL;
-    char *abspath = NULL; 
-    size_t len = 0;
-    ssize_t read;
+    int max_path = 256;
+    char modules_dir[max_path];
+    struct utsname uname_data;
+    int ret; 
 
     // get information on the running kernel 
-    struct utsname uname_data;
-    int ret = uname(&uname_data);
+    ret = uname(&uname_data);
     if (ret != 0) {
         die("failed to get kernel information");
     }
     
     // create the absolute path of the modules directory this looks 
     // like /lib/modules/<uname.release>
-    char *modules_dir = concat(base_modules_dir, path_separator, uname_data.release);
-
-    // create the absolute path of the modules order file
-    char *modules_order_path = concat(modules_dir, path_separator, modules_order_filename);
-
-    // read the modules order path which is used to read the order to insert modules in 
-    FILE *f = fopen(modules_order_path, "r");
-    if (f == NULL) {
-        die2("fopen", modules_order_path);
+    ret = snprintf(modules_dir, max_path, "%s/%s", lib_modules, uname_data.release); 
+    if (ret < 0) {
+        die("failed to create the modules directory path");
+    } else if (ret > max_path) {
+        die("modules directory buffer larger than expected"); 
     }
-
-
-    warn("creating the kmod resources");
 
     ctx = kmod_new(NULL, NULL);
     kmod_load_resources(ctx);
-
-    warn("reading module.order ");
-    while ((read = getline(&line, &len, f)) != -1) {
-        // remove trailing newline character 
-        line[strcspn(line, "\n")] = 0;
-
-        // create the absolute path of the kernel module (.ko) file
-        abspath = concat(modules_dir, path_separator, line);
-
-        // warn2("calling load module", abspath);
-        load_module(ctx, abspath);
+    ret = ftw(modules_dir, parse_tree_entry, OPEN_FDS); 
+    if (ret != 0) {
+        // Don't fail on error from walking the file tree and loading modules right now. 
+        // ftw may return an error if the modules directory doesn't exist, which
+        // may be the case for some images. Additionally, we don't currently support
+        // using a denylist when loading modules, so we may try to load modules 
+        // that cannot be loaded until later, such as nvidia modules which fail to 
+        // load if no device is present. 
+        warn("error adding modules");
     }
 
-    fclose(f);
-
-    warn("freeing space");
-
-    // free allocated memory
-    if (modules_dir) {
-        free(modules_dir);
-    }
-    if (modules_order_path) {
-        free(modules_order_path);
-    }
-    if (line) {
-        free(line);
-    }
-    if (abspath) {
-        free(abspath);
-    }
-    
+    kmod_unref(ctx);
 }
 
 #ifdef DEBUG
@@ -612,37 +605,31 @@ int main(int argc, char **argv) {
     sigfillset(&set);
 
     #ifdef DEBUG
-    warn("sigfillset\n");
     printf("sigfillset\n");
     #endif
     sigprocmask(SIG_BLOCK, &set, 0);
 
     #ifdef DEBUG
-    warn("init_rlimit\n");
     printf("init_rlimit\n");
     #endif
     init_rlimit();
 
     #ifdef DEBUG
-    warn("init_dev\n");
     printf("init_dev\n");
     #endif
     init_dev();
 
     #ifdef DEBUG
-    warn("init_fs\n");
     printf("init_fs\n");
     #endif
     init_fs(ops, sizeof(ops) / sizeof(ops[0]));
 
     #ifdef DEBUG
-    warn("init_cgroups\n");
     printf("init_cgroups\n");
     #endif
     init_cgroups();
 
     #ifdef DEBUG
-    warn("init_network\n");
     printf("init_network\n");
     #endif
     init_network("lo", AF_INET);
@@ -651,6 +638,9 @@ int main(int argc, char **argv) {
         init_entropy(entropy_port);
     }
 
+    #ifdef DEBUG
+    printf("loading modules\n");
+    #endif
     load_all_modules();
 
     pid_t pid = launch(child_argc, child_argv);
