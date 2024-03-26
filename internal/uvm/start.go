@@ -156,7 +156,7 @@ func (uvm *UtilityVM) configureHvSocketForGCS(ctx context.Context) (err error) {
 func (uvm *UtilityVM) Start(ctx context.Context) (err error) {
 	// save parent context, without timeout to use in terminate
 	pCtx := ctx
-	ctx, cancel := context.WithTimeout(pCtx, 2*time.Minute)
+	ctx, cancel := context.WithTimeout(pCtx, 10*time.Minute)
 	g, gctx := errgroup.WithContext(ctx)
 	defer func() {
 		_ = g.Wait()

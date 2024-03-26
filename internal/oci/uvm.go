@@ -298,6 +298,19 @@ func SpecToUVMCreateOpts(ctx context.Context, s *specs.Spec, id, owner string) (
 		lopts.DmVerityMode = ParseAnnotationsBool(ctx, s.Annotations, annotations.DmVerityMode, lopts.DmVerityMode)
 		// Set HclEnabled if specified. Else default to a null pointer, which is omitted from the resulting JSON.
 		lopts.HclEnabled = ParseAnnotationsNullableBool(ctx, s.Annotations, annotations.HclEnabled)
+
+		// TODO katiewasnothere: temporarily testing this out for gpu
+		// add devices
+		extraDevices := []string{}
+		if s.Windows != nil && s.Windows.Devices != nil {
+			for _, d := range s.Windows.Devices {
+				extraDevices = append(extraDevices, d.ID)
+			}
+		}
+		lopts.Devices = extraDevices
+		// TODO katiewasnothere: would not actually be able to do this I think?
+		s.Windows.Devices = nil
+
 		return lopts, nil
 	} else if IsWCOW(s) {
 		wopts := uvm.NewDefaultOptionsWCOW(id, owner)

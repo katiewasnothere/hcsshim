@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include "../vsockexec/vsock.h"
 
+#define DEBUG 1
 
 #ifdef DEBUG
 #ifdef USE_TCP
@@ -608,36 +609,43 @@ int main(int argc, char **argv) {
     sigset_t set;
     #ifdef DEBUG
     printf("sigfillset(&set)\n");
+    warn("sigfillset(&set)\n");
     #endif
     sigfillset(&set);
 
     #ifdef DEBUG
     printf("sigfillset\n");
+    warn("sigfillset\n");
     #endif
     sigprocmask(SIG_BLOCK, &set, 0);
 
     #ifdef DEBUG
     printf("init_rlimit\n");
+    warn("init_rlimit\n");
     #endif
     init_rlimit();
 
     #ifdef DEBUG
     printf("init_dev\n");
+    warn("init_dev\n");
     #endif
     init_dev();
 
     #ifdef DEBUG
     printf("init_fs\n");
+    warn("init_fs\n");
     #endif
     init_fs(ops, sizeof(ops) / sizeof(ops[0]));
 
     #ifdef DEBUG
     printf("init_cgroups\n");
+    warn("init_cgroups\n");
     #endif
     init_cgroups();
 
     #ifdef DEBUG
     printf("init_network\n");
+    warn("init_network\n");
     #endif
     init_network("lo", AF_INET);
     init_network("lo", AF_INET6);
@@ -647,6 +655,7 @@ int main(int argc, char **argv) {
 
     #ifdef DEBUG
     printf("loading modules\n");
+    warn("loading modules\n");
     #endif
     load_all_modules();
 

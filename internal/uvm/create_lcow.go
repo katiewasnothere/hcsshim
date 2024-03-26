@@ -132,6 +132,7 @@ type OptionsLCOW struct {
 	DisableTimeSyncService  bool                 // Disables the time synchronization service
 	HclEnabled              *bool                // Whether to enable the host compatibility layer
 	ExtraVSockPorts         []uint32             // Extra vsock ports to allow
+	Devices                 []string             // Extra devices to add on the pod
 }
 
 // defaultLCOWOSBootFilesPath returns the default path used to locate the LCOW
@@ -649,6 +650,64 @@ func makeLCOWDoc(ctx context.Context, opts *OptionsLCOW, uvm *UtilityVM) (_ *hcs
 		},
 	}
 
+	// Set permissions for the VSock ports:
+	//		entropyVsockPort - 1 is the entropy port,
+	//		linuxLogVsockPort - 109 used by vsockexec to log stdout/stderr logging,
+	//		0x40000000 + 1 (LinuxGcsVsockPort + 1) is the bridge (see guestconnectiuon.go)
+	hvSockets := []uint32{}
+	hvSockets = append(hvSockets, opts.ExtraVSockPorts...)
+	for _, whichSocket := range hvSockets {
+		key := winio.VsockServiceID(whichSocket).String()
+		doc.VirtualMachine.Devices.HvSocket.HvSocketConfig.ServiceTable[key] = hcsschema.HvSocketServiceConfig{
+			AllowWildcardBinds:        true,
+			BindSecurityDescriptor:    "D:P(A;;FA;;;WD)",
+			ConnectSecurityDescriptor: "D:P(A;;FA;;;SY)(A;;FA;;;BA)",
+		}
+	}
+
+	if len(opts.Devices) > 0 {
+		log.G(ctx).WithField("devices", opts.Devices).Info("making lcow doc with devices")
+		doc.VirtualMachine.Devices.VirtualPci = make(map[string]hcsschema.VirtualPciDevice)
+		for _, d := range opts.Devices {
+			log.G(ctx).WithField("deviced", d).Info("adding device to doc")
+
+			vpciKey := VPCIDeviceKey{
+				deviceInstanceID:     d,
+				virtualFunctionIndex: 0,
+			}
+			uvm.m.Lock()
+			existingDevice := uvm.vpciDevices[vpciKey]
+			if existingDevice != nil {
+				existingDevice.refCount++
+				uvm.m.Unlock()
+				continue
+			}
+
+			vmbusGUID, err := guid.NewV4()
+			if err != nil {
+				uvm.m.Unlock()
+				return nil, err
+			}
+
+			vpciDev := &VPCIDevice{
+				vm:                   uvm,
+				VMBusGUID:            vmbusGUID.String(),
+				deviceInstanceID:     d,
+				virtualFunctionIndex: 0,
+				refCount:             1,
+			}
+			doc.VirtualMachine.Devices.VirtualPci[vmbusGUID.String()] = hcsschema.VirtualPciDevice{
+				Functions: []hcsschema.VirtualPciFunction{
+					{
+						DeviceInstancePath: d,
+					},
+				},
+			}
+			uvm.vpciDevices[vpciKey] = vpciDev
+			uvm.m.Unlock()
+		}
+	}
+
 	maps.Copy(doc.VirtualMachine.Devices.HvSocket.HvSocketConfig.ServiceTable, opts.AdditionalHyperVConfig)
 
 	// Handle StorageQoS if set
@@ -750,6 +809,7 @@ func makeLCOWDoc(ctx context.Context, opts *OptionsLCOW, uvm *UtilityVM) (_ *hcs
 		kernelArgs += " 8250_core.nr_uarts=0"
 	}
 
+	// opts.EnableGraphicsConsole = true
 	if opts.EnableGraphicsConsole {
 		vmDebugging = true
 		kernelArgs += " console=tty"
