@@ -343,6 +343,8 @@ const (
 	// number of memory blocks at slice index 1, etc.
 	// This should be used for explicit vNUMA topology.
 	NumaCountOfMemoryBlocks = "io.microsoft.virtualmachine.computetopology.numa.count-of-memory-blocks"
+
+	BatchLayerAttach = "io.microsoft.virtualmachine.batchscsilayerattach"
 )
 
 // AnnotationExpansions maps annotations that will be expanded into an array of

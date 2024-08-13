@@ -133,6 +133,7 @@ type OptionsLCOW struct {
 	HclEnabled              *bool                // Whether to enable the host compatibility layer
 	ExtraVSockPorts         []uint32             // Extra vsock ports to allow
 	AssignedDevices         []VPCIDeviceID       // AssignedDevices are devices to add on pod boot
+	BatchLayerAttach        bool                 // add scsi devices for layers in batches intead of sequentially
 }
 
 // defaultLCOWOSBootFilesPath returns the default path used to locate the LCOW
@@ -182,6 +183,7 @@ func NewDefaultOptionsLCOW(id, owner string) *OptionsLCOW {
 			SecurityPolicyEnabled: false,
 			UVMReferenceInfoFile:  UVMReferenceInfoFile,
 		},
+		BatchLayerAttach: false,
 	}
 
 	opts.UpdateBootFilesPath(context.TODO(), defaultLCOWOSBootFilesPath())
@@ -937,6 +939,7 @@ func CreateLCOW(ctx context.Context, opts *OptionsLCOW) (_ *UtilityVM, err error
 		encryptScratch:          opts.EnableScratchEncryption,
 		noWritableFileShares:    opts.NoWritableFileShares,
 		confidentialUVMOptions:  opts.ConfidentialOptions,
+		BatchLayerAttach:        opts.BatchLayerAttach,
 	}
 
 	defer func() {

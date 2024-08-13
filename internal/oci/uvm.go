@@ -332,6 +332,8 @@ func SpecToUVMCreateOpts(ctx context.Context, s *specs.Spec, id, owner string) (
 		// Add devices on the spec to the UVM's options
 		lopts.AssignedDevices = parseDevices(ctx, s.Windows)
 
+		lopts.BatchLayerAttach = ParseAnnotationsBool(ctx, s.Annotations, annotations.BatchLayerAttach, lopts.BatchLayerAttach)
+
 		return lopts, nil
 	} else if IsWCOW(s) {
 		wopts := uvm.NewDefaultOptionsWCOW(id, owner)

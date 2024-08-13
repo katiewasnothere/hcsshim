@@ -14,6 +14,7 @@ const (
 	NetworkResourceFormat            string = "VirtualMachine/Devices/NetworkAdapters/%s"
 	Plan9ShareResourcePath           string = "VirtualMachine/Devices/Plan9/Shares"
 	SCSIResourceFormat               string = "VirtualMachine/Devices/Scsi/%s/Attachments/%d"
+	MultiSCSIResourceFormat          string = "VirtualMachine/Devices/Scsi/%s/Attachments"
 	SharedMemoryRegionResourcePath   string = "VirtualMachine/Devices/SharedMemory/Regions"
 	VirtualPCIResourceFormat         string = "VirtualMachine/Devices/VirtualPci/%s"
 	VPMemControllerResourceFormat    string = "VirtualMachine/Devices/VirtualPMem/Devices/%d"

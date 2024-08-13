@@ -142,6 +142,10 @@ type UtilityVM struct {
 
 	// confidentialUVMOptions hold confidential UVM specific options
 	confidentialUVMOptions *ConfidentialOptions
+
+	// TODO katiewasnothere
+	// test with adding layers for lcow (later lets test wcow) in batches
+	BatchLayerAttach bool
 }
 
 func (uvm *UtilityVM) ScratchEncryptionEnabled() bool {

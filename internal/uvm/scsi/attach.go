@@ -55,6 +55,68 @@ type attachConfig struct {
 	evdType  string
 }
 
+// TODO katiewasnothere: this is probably not correctly thread safe
+// do we want to lock at the individual mount additions or at the batched level
+func (am *attachManager) attachMultiple(ctx context.Context, configs []*attachConfig) (controllers []uint, luns []uint, err error) {
+	needToAdd := false
+	requests := make(map[uint][]*attachRequest)
+
+	for _, c := range configs {
+		att, existed, err := am.trackAttachment(c)
+		if err != nil {
+			return nil, nil, err
+		}
+		if existed {
+			select {
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			case <-att.waitCh:
+				if att.waitErr != nil {
+					return nil, nil, att.waitErr
+				}
+			}
+			controllers = append(controllers, att.controller)
+			luns = append(luns, att.lun)
+			continue
+		}
+
+		defer func() {
+			if err != nil {
+				am.m.Lock()
+				am.untrackAttachment(att)
+				am.m.Unlock()
+			}
+
+			att.waitErr = err
+			close(att.waitCh)
+		}()
+
+		needToAdd = true
+
+		r := &attachRequest{
+			lun:    att.lun,
+			config: c,
+		}
+
+		if requests[att.controller] == nil {
+			requests[att.controller] = []*attachRequest{}
+		}
+		requests[att.controller] = append(requests[att.controller], r)
+
+	}
+
+	// if all of the attachments already existed, just return those and be done
+	if !needToAdd {
+		return controllers, luns, nil
+	}
+
+	if err := am.attacher.attachMultiple(ctx, requests); err != nil {
+		return nil, nil, fmt.Errorf("attach batched mounts: %w", err)
+	}
+
+	return controllers, luns, nil
+}
+
 func (am *attachManager) attach(ctx context.Context, c *attachConfig) (controller uint, lun uint, err error) {
 	att, existed, err := am.trackAttachment(c)
 	if err != nil {

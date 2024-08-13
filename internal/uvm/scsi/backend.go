@@ -34,6 +34,7 @@ type GuestBackend interface {
 // attacher provides the low-level operations for attaching a SCSI device to a VM.
 type attacher interface {
 	attach(ctx context.Context, controller, lun uint, config *attachConfig) error
+	attachMultiple(ctx context.Context, requests map[uint][]*attachRequest) error
 	detach(ctx context.Context, controller, lun uint) error
 }
 
@@ -57,6 +58,67 @@ type hcsHostBackend struct {
 // NewHCSHostBackend provides a [HostBackend] using a [hcs.System].
 func NewHCSHostBackend(system *hcs.System) HostBackend {
 	return &hcsHostBackend{system}
+}
+
+// // TODO katiewasnothere: all batched requests use the same controller?
+// func (hhb *hcsHostBackend) attachMultiple(ctx context.Context, controller uint, luns []uint, configs []*attachConfig) error {
+// 	if len(luns) != len(configs) {
+// 		return fmt.Errorf("must be the same number of controllers, luns, and configs")
+// 	}
+// 	attachments := &hcsschema.SCSIAttachments{}
+// 	for i := 0; i < len(luns); i++ {
+// 		c := configs[i]
+// 		a := hcsschema.Attachment{
+// 			Path:                      c.path,
+// 			Type_:                     c.typ,
+// 			ReadOnly:                  c.readOnly,
+// 			ExtensibleVirtualDiskType: c.evdType,
+// 		}
+// 		l := uint32(luns[i])
+// 		attachments.Attachments[l] = a
+// 	}
+
+// 	req := &hcsschema.ModifySettingRequest{
+// 		RequestType:  guestrequest.RequestTypeAdd,
+// 		Settings:     attachments,
+// 		ResourcePath: fmt.Sprintf(resourcepaths.MultiSCSIResourceFormat, guestrequest.ScsiControllerGuids[controller]),
+// 	}
+// 	return hhb.system.Modify(ctx, req)
+// }
+
+type attachRequest struct {
+	lun    uint
+	config *attachConfig
+}
+
+// attachMultiple makes batched requests to attach SCSI devices.
+// batch requests are at the controller level, so a new request is made per unique
+// controller requested
+func (hhb *hcsHostBackend) attachMultiple(ctx context.Context, requests map[uint][]*attachRequest) error {
+	for k, v := range requests {
+		attachments := &hcsschema.SCSIAttachments{}
+		for _, r := range v {
+			a := hcsschema.Attachment{
+				Path:                      r.config.path,
+				Type_:                     r.config.typ,
+				ReadOnly:                  r.config.readOnly,
+				ExtensibleVirtualDiskType: r.config.evdType,
+			}
+			attachments.Attachments[uint32(r.lun)] = a
+		}
+
+		req := &hcsschema.ModifySettingRequest{
+			RequestType:  guestrequest.RequestTypeAdd,
+			Settings:     attachments,
+			ResourcePath: fmt.Sprintf(resourcepaths.MultiSCSIResourceFormat, guestrequest.ScsiControllerGuids[k]),
+		}
+
+		if err := hhb.system.Modify(ctx, req); err != nil {
+			return err
+		}
+
+	}
+	return nil
 }
 
 func (hhb *hcsHostBackend) attach(ctx context.Context, controller, lun uint, config *attachConfig) error {

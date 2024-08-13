@@ -103,14 +103,25 @@ func MountLCOWLayers(ctx context.Context, containerID string, layers *LCOWLayers
 		}
 	}()
 
-	for _, layer := range layers.Layers {
-		log.G(ctx).WithField("layerPath", layer.VHDPath).Debug("mounting layer")
-		uvmPath, closer, err := addLCOWLayer(ctx, vm, layer)
+	// TODO katiewasnothere: this needs to be a function on the uvm instead of an exported field
+	if vm.BatchLayerAttach {
+		uvmPaths, closers, err := addLCOWLayerMultiple(ctx, vm, layers.Layers)
 		if err != nil {
 			return "", "", nil, fmt.Errorf("failed to add LCOW layer: %w", err)
 		}
-		layerClosers = append(layerClosers, closer)
-		lcowUvmLayerPaths = append(lcowUvmLayerPaths, uvmPath)
+		layerClosers = append(layerClosers, closers...)
+		lcowUvmLayerPaths = append(lcowUvmLayerPaths, uvmPaths...)
+
+	} else {
+		for _, layer := range layers.Layers {
+			log.G(ctx).WithField("layerPath", layer.VHDPath).Debug("mounting layer")
+			uvmPath, closer, err := addLCOWLayer(ctx, vm, layer)
+			if err != nil {
+				return "", "", nil, fmt.Errorf("failed to add LCOW layer: %w", err)
+			}
+			layerClosers = append(layerClosers, closer)
+			lcowUvmLayerPaths = append(lcowUvmLayerPaths, uvmPath)
+		}
 	}
 
 	hostPath := layers.ScratchVHDPath
@@ -168,6 +179,70 @@ func MountLCOWLayers(ctx context.Context, containerID string, layers *LCOWLayers
 		layerClosers:            layerClosers,
 	}
 	return rootfs, containerScratchPathInUVM, closer, nil
+}
+
+func addLCOWLayerMultiple(ctx context.Context, vm *uvm.UtilityVM, layers []*LCOWLayer) (uvmPaths []string, _ []resources.ResourceCloser, err error) {
+	// Don't add as VPMEM when we want additional devices on the UVM to be fully physically backed.
+	// Also don't use VPMEM when we need to mount a specific partition of the disk, as this is only
+	// supported for SCSI.
+
+	// TODO katiewasnothere: don't even bother trying to add as a vpmem device
+	// for _, l := range layer {
+	// 	if !vm.DevicesPhysicallyBacked() && l.Partition == 0 {
+	// 		// We first try vPMEM and if it is full or the file is too large we
+	// 		// fall back to SCSI.
+	// 		mount, err := vm.AddVPMem(ctx, l.VHDPath)
+	// 		if err == nil {
+	// 			log.G(ctx).WithFields(logrus.Fields{
+	// 				"layerPath": l.VHDPath,
+	// 				"layerType": "vpmem",
+	// 			}).Debug("Added LCOW layer")
+	// 			return mount.GuestPath, mount, nil
+	// 		} else if !errors.Is(err, uvm.ErrNoAvailableLocation) && !errors.Is(err, uvm.ErrMaxVPMemLayerSize) {
+	// 			return "", nil, fmt.Errorf("failed to add VPMEM layer: %w", err)
+	// 		}
+	// 	}
+
+	// }
+
+	paths := make([]string, len(layers))
+	mountConfigs := []*scsi.MountConfig{}
+
+	for i, l := range layers {
+		paths[i] = l.VHDPath
+		mountConfigs[i] = &scsi.MountConfig{
+			Partition: l.Partition,
+			Options:   []string{"ro"},
+		}
+	}
+
+	sms, err := vm.SCSIManager.AddMultipleVirtualDisk(
+		ctx,
+		paths,
+		true,
+		"",
+		mountConfigs,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to add SCSI layers: %w", err)
+	}
+
+	for _, l := range layers {
+		log.G(ctx).WithFields(logrus.Fields{
+			"layerPath":      l.VHDPath,
+			"layerPartition": l.Partition,
+			"layerType":      "scsi",
+		}).Debug("Added LCOW layers")
+	}
+
+	guestPaths := []string{}
+	rc := []resources.ResourceCloser{}
+	for _, s := range sms {
+		guestPaths = append(guestPaths, s.GuestPath())
+		rc = append(rc, s)
+	}
+
+	return guestPaths, rc, nil
 }
 
 func addLCOWLayer(ctx context.Context, vm *uvm.UtilityVM, layer *LCOWLayer) (uvmPath string, _ resources.ResourceCloser, err error) {

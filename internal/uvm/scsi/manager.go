@@ -172,6 +172,60 @@ func (m *Manager) AddVirtualDisk(
 		mcInternal)
 }
 
+func (m *Manager) AddMultipleVirtualDisk(
+	ctx context.Context,
+	hostPaths []string,
+	readOnly bool,
+	vmID string,
+	mountConfigs []*MountConfig,
+) ([]*Mount, error) {
+	if m == nil {
+		return nil, ErrNotInitialized
+	}
+	if vmID != "" {
+		for _, h := range hostPaths {
+			if err := wclayer.GrantVmAccess(ctx, vmID, h); err != nil {
+				return nil, err
+			}
+		}
+
+	}
+
+	// TODO katiewasnothere: in order for this to work as expected,
+	// there MUST be nil values in `mountConfigs` when a mount is not
+	// requested for the scsi device. otherwise we will use the wrong
+	// mount config for the wrong mount and we will accidentally mount
+	// thinks we didn't want to mount
+	mcInternals := []*mountConfig{}
+	for _, mConfig := range mountConfigs {
+		var mcInternal *mountConfig
+		if mConfig != nil {
+			mcInternal = &mountConfig{
+				partition:        mConfig.Partition,
+				readOnly:         readOnly,
+				encrypted:        mConfig.Encrypted,
+				options:          mConfig.Options,
+				ensureFilesystem: mConfig.EnsureFilesystem,
+				filesystem:       mConfig.Filesystem,
+				blockDev:         mConfig.BlockDev,
+			}
+		}
+		mcInternals = append(mcInternals, mcInternal)
+	}
+
+	attachConfigs := []*attachConfig{}
+	for _, p := range hostPaths {
+		a := &attachConfig{
+			path:     p,
+			readOnly: readOnly,
+			typ:      "VirtualDisk",
+		}
+		attachConfigs = append(attachConfigs, a)
+	}
+
+	return m.addMultiple(ctx, attachConfigs, mcInternals)
+}
+
 // AddPhysicalDisk attaches and mounts a physical disk on the host to the VM.
 // If the same physical disk has already been attached to the VM, the existing
 // attachment will be reused. If the same physical disk has already been mounted
@@ -261,6 +315,38 @@ func (m *Manager) AddExtensibleVirtualDisk(
 			evdType:  evdType,
 		},
 		mcInternal)
+}
+
+func (m *Manager) addMultiple(ctx context.Context, attachConfigs []*attachConfig, mountConfigs []*mountConfig) (_ []*Mount, err error) {
+	controllers, luns, err := m.attachManager.attachMultiple(ctx, attachConfigs)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			// todo katiewasnothere: assuming we want to remove all even if only one fails
+			for i := 0; i < len(controllers); i++ {
+				_, _ = m.attachManager.detach(ctx, controllers[i], luns[i])
+
+			}
+		}
+	}()
+
+	results := []*Mount{}
+	for i, mount := range mountConfigs {
+		var guestPath string
+		if mount != nil {
+			guestPath, err = m.mountManager.mount(ctx, controllers[i], luns[i], mount)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		mounted := &Mount{mgr: m, controller: controllers[i], lun: luns[i], guestPath: guestPath}
+		results = append(results, mounted)
+	}
+
+	return results, nil
 }
 
 func (m *Manager) add(ctx context.Context, attachConfig *attachConfig, mountConfig *mountConfig) (_ *Mount, err error) {

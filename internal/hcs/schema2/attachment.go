@@ -9,6 +9,10 @@
 
 package hcsschema
 
+type SCSIAttachments struct {
+	Attachments map[uint32]Attachment
+}
+
 type Attachment struct {
 	Type_ string `json:"Type,omitempty"`
 
