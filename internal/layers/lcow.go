@@ -206,7 +206,7 @@ func addLCOWLayerMultiple(ctx context.Context, vm *uvm.UtilityVM, layers []*LCOW
 	// }
 
 	paths := make([]string, len(layers))
-	mountConfigs := []*scsi.MountConfig{}
+	mountConfigs := make([]*scsi.MountConfig, len(layers))
 
 	for i, l := range layers {
 		paths[i] = l.VHDPath

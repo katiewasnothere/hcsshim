@@ -96,7 +96,9 @@ type attachRequest struct {
 // controller requested
 func (hhb *hcsHostBackend) attachMultiple(ctx context.Context, requests map[uint][]*attachRequest) error {
 	for k, v := range requests {
-		attachments := &hcsschema.SCSIAttachments{}
+		attachments := &hcsschema.SCSIAttachments{
+			Attachments: make(map[uint32]hcsschema.Attachment),
+		}
 		for _, r := range v {
 			a := hcsschema.Attachment{
 				Path:                      r.config.path,
