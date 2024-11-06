@@ -56,16 +56,21 @@ type attachConfig struct {
 }
 
 // TODO katiewasnothere: this is probably not correctly thread safe
-// do we want to lock at the individual mount additions or at the batched level
+// do we want to lock at the individual mount additions or at the batched level?
 func (am *attachManager) attachMultiple(ctx context.Context, configs []*attachConfig) (controllers []uint, luns []uint, err error) {
 	needToAdd := false
 	requests := make(map[uint][]*attachRequest)
+	controllers = make([]uint, 0)
+	luns = make([]uint, 0)
 
 	for _, c := range configs {
 		att, existed, err := am.trackAttachment(c)
 		if err != nil {
 			return nil, nil, err
 		}
+		controllers = append(controllers, att.controller)
+		luns = append(luns, att.lun)
+
 		if existed {
 			select {
 			case <-ctx.Done():
@@ -75,8 +80,6 @@ func (am *attachManager) attachMultiple(ctx context.Context, configs []*attachCo
 					return nil, nil, att.waitErr
 				}
 			}
-			controllers = append(controllers, att.controller)
-			luns = append(luns, att.lun)
 			continue
 		}
 
@@ -102,7 +105,6 @@ func (am *attachManager) attachMultiple(ctx context.Context, configs []*attachCo
 			requests[att.controller] = []*attachRequest{}
 		}
 		requests[att.controller] = append(requests[att.controller], r)
-
 	}
 
 	// if all of the attachments already existed, just return those and be done
