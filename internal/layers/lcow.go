@@ -216,7 +216,7 @@ func addLCOWLayerMultiple(ctx context.Context, vm *uvm.UtilityVM, layers []*LCOW
 		}
 	}
 
-	sms, err := vm.SCSIManager.AddMultipleVirtualDisk(
+	bms, err := vm.SCSIManager.AddMultipleVirtualDisk(
 		ctx,
 		paths,
 		true,
@@ -235,13 +235,8 @@ func addLCOWLayerMultiple(ctx context.Context, vm *uvm.UtilityVM, layers []*LCOW
 		}).Debug("Added LCOW layers")
 	}
 
-	guestPaths := []string{}
-	rc := []resources.ResourceCloser{}
-	for _, s := range sms {
-		guestPaths = append(guestPaths, s.GuestPath())
-		rc = append(rc, s)
-	}
-
+	rc := []resources.ResourceCloser{bms}
+	guestPaths := bms.GetGuestPaths()
 	return guestPaths, rc, nil
 }
 

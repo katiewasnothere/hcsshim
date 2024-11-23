@@ -4,6 +4,7 @@ package scsi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -177,6 +178,44 @@ func (am *attachManager) detach(ctx context.Context, controller, lun uint) (bool
 	am.untrackAttachment(att)
 
 	return true, nil
+}
+
+func (am *attachManager) detachMultiple(ctx context.Context, controller uint, luns []uint) (bool, error) {
+	am.m.Lock()
+	defer am.m.Unlock()
+
+	lunsToDetach := []uint{}
+
+	var returnErr error
+
+	for _, lun := range luns {
+		att := am.slots[controller][lun]
+		att.refCount--
+		if att.refCount > 0 {
+			continue
+		}
+
+		if err := am.unplugger.unplug(ctx, controller, lun); err != nil {
+			returnErr = errors.Join(returnErr, fmt.Errorf("unplug controller %d lun %d: %w", controller, lun, err))
+		}
+
+		// add to list of luns to detach
+		lunsToDetach = append(lunsToDetach, lun)
+
+		// TODO katiewasnothere
+		// this is not done correctly. We only want to untrack the attachment
+		// if the detach operation completed successfully. But for now, let's just assume
+		// that we know.
+		am.untrackAttachment(att)
+	}
+
+	if len(lunsToDetach) > 0 {
+		if err := am.attacher.detachMultiple(ctx, controller, lunsToDetach); err != nil {
+			returnErr = errors.Join(returnErr, fmt.Errorf("detach controller %d lun %v: %w", controller, luns, err))
+		}
+	}
+
+	return true, returnErr
 }
 
 func (am *attachManager) trackAttachment(c *attachConfig) (*attachment, bool, error) {

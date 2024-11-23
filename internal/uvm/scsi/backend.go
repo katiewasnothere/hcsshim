@@ -36,6 +36,7 @@ type attacher interface {
 	attach(ctx context.Context, controller, lun uint, config *attachConfig) error
 	attachMultiple(ctx context.Context, requests map[uint][]*attachRequest) error
 	detach(ctx context.Context, controller, lun uint) error
+	detachMultiple(ctx context.Context, controller uint, luns []uint) error
 }
 
 // mounter provides the low-level operations for mounting a SCSI device inside the guest OS.
@@ -134,6 +135,24 @@ func (hhb *hcsHostBackend) attach(ctx context.Context, controller, lun uint, con
 		},
 		ResourcePath: fmt.Sprintf(resourcepaths.SCSIResourceFormat, guestrequest.ScsiControllerGuids[controller], lun),
 	}
+	return hhb.system.Modify(ctx, req)
+}
+
+func (hhb *hcsHostBackend) detachMultiple(ctx context.Context, controller uint, luns []uint) error {
+	attachments := &hcsschema.SCSIAttachments{
+		Attachments: make(map[uint32]hcsschema.Attachment),
+	}
+	for _, l := range luns {
+		// TODO katiewasnothere: is it okay to have the attachment be empty?
+		attachments.Attachments[uint32(l)] = hcsschema.Attachment{}
+	}
+
+	req := &hcsschema.ModifySettingRequest{
+		RequestType:  guestrequest.RequestTypeRemove,
+		Settings:     attachments,
+		ResourcePath: fmt.Sprintf(resourcepaths.MultiSCSIResourceFormat, guestrequest.ScsiControllerGuids[controller]),
+	}
+
 	return hhb.system.Modify(ctx, req)
 }
 

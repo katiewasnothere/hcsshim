@@ -172,13 +172,38 @@ func (m *Manager) AddVirtualDisk(
 		mcInternal)
 }
 
+type BatchMounts struct {
+	mounts []*Mount
+	mgr    *Manager
+}
+
+func (b *BatchMounts) Release(ctx context.Context) (err error) {
+	// TODO katiewasnothere:
+	// for now we don't have a way to call releaseOnce for each mount
+	// so let's just assume we aren't doing anything complicated with this
+	// prototype
+
+	return b.mgr.removeAll(ctx, b.mounts)
+}
+
+func (b *BatchMounts) GetGuestPaths() []string {
+	paths := []string{}
+
+	for _, m := range b.mounts {
+		if m.guestPath != "" {
+			paths = append(paths, m.guestPath)
+		}
+	}
+	return paths
+}
+
 func (m *Manager) AddMultipleVirtualDisk(
 	ctx context.Context,
 	hostPaths []string,
 	readOnly bool,
 	vmID string,
 	mountConfigs []*MountConfig,
-) ([]*Mount, error) {
+) (*BatchMounts, error) {
 	if m == nil {
 		return nil, ErrNotInitialized
 	}
@@ -223,7 +248,17 @@ func (m *Manager) AddMultipleVirtualDisk(
 		attachConfigs = append(attachConfigs, a)
 	}
 
-	return m.addMultiple(ctx, attachConfigs, mcInternals)
+	mounts, err := m.addMultiple(ctx, attachConfigs, mcInternals)
+	if err != nil {
+		return nil, err
+	}
+
+	bm := &BatchMounts{
+		mounts: mounts,
+		mgr:    m,
+	}
+
+	return bm, err
 }
 
 // AddPhysicalDisk attaches and mounts a physical disk on the host to the VM.
@@ -325,6 +360,8 @@ func (m *Manager) addMultiple(ctx context.Context, attachConfigs []*attachConfig
 	defer func() {
 		if err != nil {
 			// todo katiewasnothere: assuming we want to remove all even if only one fails
+
+			// TODO katiewasnothere: detach in a batched way
 			for i := 0; i < len(controllers); i++ {
 				_, _ = m.attachManager.detach(ctx, controllers[i], luns[i])
 
@@ -369,6 +406,41 @@ func (m *Manager) add(ctx context.Context, attachConfig *attachConfig, mountConf
 	}
 
 	return &Mount{mgr: m, controller: controller, lun: lun, guestPath: guestPath}, nil
+}
+
+func (m *Manager) removeAll(ctx context.Context, mounts []*Mount) error {
+	lunsByControllerToDetach := make(map[uint][]uint)
+
+	var returnErr error
+	for _, mount := range mounts {
+		if mount.guestPath != "" {
+			removed, err := m.mountManager.unmount(ctx, mount.guestPath)
+			if err != nil {
+				returnErr = errors.Join(returnErr, err)
+				continue
+			}
+
+			if !removed {
+				continue
+			}
+		}
+
+		// add to the map of conrollers and luns
+		if lunsByControllerToDetach[mount.controller] == nil {
+			lunsByControllerToDetach[mount.controller] = make([]uint, 1)
+		}
+
+		lunsByControllerToDetach[mount.controller] = append(lunsByControllerToDetach[mount.controller], mount.lun)
+	}
+
+	for controller, luns := range lunsByControllerToDetach {
+		if _, err := m.attachManager.detachMultiple(ctx, controller, luns); err != nil {
+			// TODO katiewasnothere: log error, wrap error
+			returnErr = errors.Join(returnErr, err)
+		}
+	}
+
+	return returnErr
 }
 
 func (m *Manager) remove(ctx context.Context, controller, lun uint, guestPath string) error {
